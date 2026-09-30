@@ -16,7 +16,7 @@ const MOSTLY_UNCHANGED_MIN_COMMON_CHILDREN: usize = 4;
 ///
 /// Split the remaining nodes into subsequences that need proper
 /// diffing, and return those subsequences.
-pub fn mark_unchanged<'a>(
+pub(crate) fn mark_unchanged<'a>(
     lhs_nodes: &[&'a Syntax<'a>],
     rhs_nodes: &[&'a Syntax<'a>],
     change_map: &mut ChangeMap<'a>,

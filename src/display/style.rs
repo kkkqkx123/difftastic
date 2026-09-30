@@ -14,13 +14,13 @@ use crate::parse::syntax::{AtomKind, MatchKind, MatchedPos, StringKind, TokenKin
 use crate::summary::FileFormat;
 
 #[derive(Clone, Copy, Debug)]
-pub enum BackgroundColor {
+pub(crate) enum BackgroundColor {
     Dark,
     Light,
 }
 
 impl BackgroundColor {
-    pub fn is_dark(self) -> bool {
+    pub(crate) fn is_dark(self) -> bool {
         matches!(self, Self::Dark)
     }
 }
@@ -61,7 +61,7 @@ fn substring_by_byte_replace_tabs(s: &str, start: usize, end: usize, tab_width: 
     s.replace('\t', &" ".repeat(tab_width))
 }
 
-pub fn width_respecting_tabs(s: &str, tab_width: usize) -> usize {
+pub(crate) fn width_respecting_tabs(s: &str, tab_width: usize) -> usize {
     let display_width = s.width();
 
     let tab_count = s.matches('\t').count();
@@ -123,7 +123,7 @@ fn split_string_by_width(s: &str, max_width: usize, tab_width: usize) -> Vec<(&s
 
 /// Return a copy of `src` with all the tab characters replaced by
 /// `tab_width` strings.
-pub fn replace_tabs(src: &str, tab_width: usize) -> String {
+pub(crate) fn replace_tabs(src: &str, tab_width: usize) -> String {
     let tab_as_spaces = " ".repeat(tab_width);
     src.replace('\t', &tab_as_spaces)
 }
@@ -131,7 +131,7 @@ pub fn replace_tabs(src: &str, tab_width: usize) -> String {
 /// Split `line` (from the source code) into multiple lines of
 /// `max_len` (i.e. word wrapping), and apply `styles` to each part
 /// according to its original position in `line`.
-pub fn split_and_apply(
+pub(crate) fn split_and_apply(
     line: &str,
     max_len: usize,
     tab_width: usize,
@@ -305,7 +305,7 @@ fn style_lines(lines: &[&str], styles: &[(SingleLineSpan, Style)]) -> Vec<String
     styled_lines
 }
 
-pub fn novel_style(style: Style, side: Side, background: BackgroundColor) -> Style {
+pub(crate) fn novel_style(style: Style, side: Side, background: BackgroundColor) -> Style {
     if background.is_dark() {
         match side {
             Side::Left => style.bright_red(),
@@ -361,7 +361,7 @@ fn merge_adjacent(items: &[(SingleLineSpan, Style)]) -> Vec<(SingleLineSpan, Sty
     merged
 }
 
-pub fn color_positions(
+pub(crate) fn color_positions(
     side: Side,
     background: BackgroundColor,
     syntax_highlight: bool,
@@ -443,7 +443,7 @@ pub fn color_positions(
     merge_adjacent(&styles)
 }
 
-pub fn apply_colors(
+pub(crate) fn apply_colors(
     s: &str,
     side: Side,
     syntax_highlight: bool,
@@ -478,7 +478,7 @@ fn apply_header_color(
 }
 
 /// Style `s` as a warning and write to stderr.
-pub fn print_warning(s: &str, display_options: &DisplayOptions) {
+pub(crate) fn print_warning(s: &str, display_options: &DisplayOptions) {
     let prefix = if display_options.use_color {
         if display_options.background_color.is_dark() {
             "warning: ".bright_yellow().to_string()
@@ -496,7 +496,7 @@ pub fn print_warning(s: &str, display_options: &DisplayOptions) {
 }
 
 /// Style `s` as an error and write to stderr.
-pub fn print_error(s: &str, use_color: bool) {
+pub(crate) fn print_error(s: &str, use_color: bool) {
     // TODO: this is inconsistent with print_warning regarding
     // arguments and trailing whitespace.
     let prefix = if use_color {
@@ -508,7 +508,7 @@ pub fn print_error(s: &str, use_color: bool) {
     eprintln!("{}{}", prefix, s);
 }
 
-pub fn apply_line_number_color(
+pub(crate) fn apply_line_number_color(
     s: &str,
     is_novel: bool,
     side: Side,
@@ -536,7 +536,7 @@ pub fn apply_line_number_color(
     }
 }
 
-pub fn header(
+pub(crate) fn header(
     display_path: &str,
     extra_info: Option<&String>,
     hunk_num: usize,

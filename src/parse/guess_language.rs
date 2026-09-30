@@ -18,7 +18,7 @@ use strum::{EnumIter, IntoEnumIterator};
 /// Languages supported by difftastic. Each language here has a
 /// corresponding tree-sitter parser.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumIter)]
-pub enum Language {
+pub(crate) enum Language {
     Ada,
     Apex,
     Asm,
@@ -90,7 +90,7 @@ pub enum Language {
 /// as a specific languages, rather than using the normal language
 /// detection logic.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum LanguageOverride {
+pub(crate) enum LanguageOverride {
     /// Treat the file as this language regardless of what language
     /// detection thinks.
     Language(Language),
@@ -100,7 +100,7 @@ pub enum LanguageOverride {
 
 /// If there is a language called `name` (comparing case
 /// insensitively), return it. Treat `"text"` as an additional option.
-pub fn language_override_from_name(name: &str) -> Option<LanguageOverride> {
+pub(crate) fn language_override_from_name(name: &str) -> Option<LanguageOverride> {
     let name = name.trim().to_lowercase();
 
     if name == "text" {
@@ -118,7 +118,7 @@ pub fn language_override_from_name(name: &str) -> Option<LanguageOverride> {
 }
 
 /// The language name shown to the user.
-pub fn language_name(language: Language) -> &'static str {
+pub(crate) fn language_name(language: Language) -> &'static str {
     match language {
         Ada => "Ada",
         Apex => "Apex",
@@ -193,7 +193,7 @@ use Language::*;
 use crate::lines::split_on_newlines;
 
 /// File globs that identify languages based on the file path.
-pub fn language_globs(language: Language) -> Vec<glob::Pattern> {
+pub(crate) fn language_globs(language: Language) -> Vec<glob::Pattern> {
     let glob_strs: &'static [&'static str] = match language {
         Ada => &["*.ada", "*.adb", "*.ads"],
         Asm => &["*.asm", "*.s", "*.S"],
@@ -466,7 +466,7 @@ fn looks_like_xml(src: &str) -> bool {
     src.starts_with("<?xml")
 }
 
-pub fn guess(
+pub(crate) fn guess(
     path: &Path,
     src: &str,
     overrides: &[(LanguageOverride, Vec<glob::Pattern>)],

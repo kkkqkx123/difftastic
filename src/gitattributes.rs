@@ -4,7 +4,7 @@ use std::process::Command;
 /// The result of checking file's `diff` and `binary` attributes with `git check-attr`.
 /// See man gitattributes, specifically **Generating diff text** section.
 #[derive(Debug, PartialEq)]
-pub enum DiffAttribute {
+pub(crate) enum DiffAttribute {
     /// The file type (text vs binary) will be autodetected.
     ///
     /// This is the default setting, when `diff` attribute is not present.
@@ -26,7 +26,7 @@ pub enum DiffAttribute {
 /// Runs `git check-attr diff binary` to get the diff and binary attributes of the path. Returns
 /// [`Option::None`] when either `git` is not available, file is not inside git directory, or
 /// something else went wrong.
-pub fn check_diff_attr(path: &Path) -> Option<DiffAttribute> {
+pub(crate) fn check_diff_attr(path: &Path) -> Option<DiffAttribute> {
     let res = Command::new("git")
         .args(["check-attr", "diff", "binary", "-z", "--"])
         .arg(path)

@@ -293,7 +293,7 @@ impl Highlight {
     }
 }
 
-pub fn print_directory(diffs: Vec<DiffResult>, print_unchanged: bool) {
+pub(crate) fn print_directory(diffs: Vec<DiffResult>, print_unchanged: bool) {
     let files = diffs
         .iter()
         .map(File::from)
@@ -305,7 +305,7 @@ pub fn print_directory(diffs: Vec<DiffResult>, print_unchanged: bool) {
     );
 }
 
-pub fn print(diff: &DiffResult) {
+pub(crate) fn print(diff: &DiffResult) {
     let file = File::from(diff);
     println!(
         "{}",

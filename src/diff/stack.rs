@@ -11,7 +11,7 @@ struct Node<'b, T> {
 /// This is similar to `Stack` from the rpds crate, but it's faster
 /// and uses less memory.
 #[derive(Debug, Clone, Default)]
-pub struct Stack<'b, T> {
+pub(crate) struct Stack<'b, T> {
     head: Option<&'b Node<'b, T>>,
 }
 
@@ -45,19 +45,19 @@ impl<T: PartialEq> PartialEq for Stack<'_, T> {
 impl<T: Eq> Eq for Stack<'_, T> {}
 
 impl<'b, T> Stack<'b, T> {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self { head: None }
     }
 
-    pub fn peek(&self) -> Option<&T> {
+    pub(crate) fn peek(&self) -> Option<&T> {
         self.head.map(|n| &n.val)
     }
 
-    pub fn pop(&self) -> Option<Self> {
+    pub(crate) fn pop(&self) -> Option<Self> {
         self.head.map(|n| Self { head: n.next })
     }
 
-    pub fn push(&self, v: T, alloc: &'b Bump) -> Self {
+    pub(crate) fn push(&self, v: T, alloc: &'b Bump) -> Self {
         Self {
             head: Some(alloc.alloc(Node {
                 val: v,
@@ -67,11 +67,11 @@ impl<'b, T> Stack<'b, T> {
     }
 
     // O(n)
-    pub fn size(&self) -> usize {
+    pub(crate) fn size(&self) -> usize {
         std::iter::successors(self.head, |&n| n.next).count()
     }
 
-    pub fn is_empty(&self) -> bool {
+    pub(crate) fn is_empty(&self) -> bool {
         self.head.is_none()
     }
 }

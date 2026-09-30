@@ -4,7 +4,7 @@ use crate::hash::DftHashMap;
 use crate::parse::syntax::{AtomKind, Syntax, SyntaxId};
 
 #[derive(PartialEq, Eq, Clone, Copy)]
-pub enum ChangeKind<'a> {
+pub(crate) enum ChangeKind<'a> {
     /// This node is shallowly unchanged. For lists, this means that
     /// the delimiters match, but there may still be some differences
     /// in the children between LHS and RHS.
@@ -21,21 +21,21 @@ pub enum ChangeKind<'a> {
 }
 
 #[derive(Debug, Default)]
-pub struct ChangeMap<'a> {
+pub(crate) struct ChangeMap<'a> {
     changes: DftHashMap<SyntaxId, ChangeKind<'a>>,
 }
 
 impl<'a> ChangeMap<'a> {
-    pub fn insert(&mut self, node: &'a Syntax<'a>, ck: ChangeKind<'a>) {
+    pub(crate) fn insert(&mut self, node: &'a Syntax<'a>, ck: ChangeKind<'a>) {
         self.changes.insert(node.id(), ck);
     }
 
-    pub fn get(&self, node: &Syntax<'a>) -> Option<ChangeKind<'a>> {
+    pub(crate) fn get(&self, node: &Syntax<'a>) -> Option<ChangeKind<'a>> {
         self.changes.get(&node.id()).copied()
     }
 }
 
-pub fn insert_deep_unchanged<'a>(
+pub(crate) fn insert_deep_unchanged<'a>(
     node: &'a Syntax<'a>,
     opposite_node: &'a Syntax<'a>,
     change_map: &mut ChangeMap<'a>,
@@ -90,7 +90,7 @@ pub fn insert_deep_unchanged<'a>(
     }
 }
 
-pub fn insert_deep_novel<'a>(node: &'a Syntax<'a>, change_map: &mut ChangeMap<'a>) {
+pub(crate) fn insert_deep_novel<'a>(node: &'a Syntax<'a>, change_map: &mut ChangeMap<'a>) {
     change_map.insert(node, ChangeKind::Novel);
 
     if let Syntax::List { children, .. } = node {

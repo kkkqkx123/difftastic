@@ -12,7 +12,7 @@ use std::hash::Hash;
 use imara_diff::{Algorithm, Diff, InternedInput, Interner};
 
 #[derive(Debug, PartialEq)]
-pub enum DiffResult<T> {
+pub(crate) enum DiffResult<T> {
     /// Both sides match.
     Both(T, T),
     /// Novel to LHS.
@@ -22,7 +22,7 @@ pub enum DiffResult<T> {
 }
 
 /// Compute a linear diff between `lhs` and `rhs`.
-pub fn slice<'a, T: Eq + Hash>(lhs: &'a [T], rhs: &'a [T]) -> Vec<DiffResult<&'a T>> {
+pub(crate) fn slice<'a, T: Eq + Hash>(lhs: &'a [T], rhs: &'a [T]) -> Vec<DiffResult<&'a T>> {
     let mut input: InternedInput<&'a T> = InternedInput {
         before: Vec::with_capacity(lhs.len()),
         after: Vec::with_capacity(rhs.len()),
