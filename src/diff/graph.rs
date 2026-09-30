@@ -48,21 +48,21 @@ use crate::parse::syntax::{AtomKind, Syntax, SyntaxId};
 /// Vertices are arena allocated (the 'v lifetime) and have references
 /// to syntax nodes (the 's lifetime).
 #[derive(Debug, Clone)]
-pub(crate) struct Vertex<'s, 'v> {
+pub struct Vertex<'s, 'v> {
     /// The neighbours of this vertex. This is computed lazily, on
     /// first access.
-    pub(crate) neighbours: OnceCell<&'v [(Edge, &'v Vertex<'s, 'v>)]>,
+    pub neighbours: OnceCell<&'v [(Edge, &'v Vertex<'s, 'v>)]>,
     /// The predecessor of this vertex in the shortest route found so
     /// far.
     ///
     /// This can change as Dijkstra runs: the first time we see the
     /// node in the to-visit set, we may not have reached it by the
     /// shortest route.
-    pub(crate) predecessor: Cell<Option<(u32, &'v Vertex<'s, 'v>)>>,
+    pub predecessor: Cell<Option<(u32, &'v Vertex<'s, 'v>)>>,
     // TODO: experiment with storing SyntaxId only, and have a HashMap
     // from SyntaxId to &Syntax.
-    pub(crate) lhs_syntax: Option<&'s Syntax<'s>>,
-    pub(crate) rhs_syntax: Option<&'s Syntax<'s>>,
+    pub lhs_syntax: Option<&'s Syntax<'s>>,
+    pub rhs_syntax: Option<&'s Syntax<'s>>,
     parents: Stack<'v, EnteredDelimiter<'s, 'v>>,
     lhs_parent_id: Option<SyntaxId>,
     rhs_parent_id: Option<SyntaxId>,
@@ -266,11 +266,11 @@ fn push_rhs_delimiter<'s, 'v>(
 }
 
 impl<'s, 'v> Vertex<'s, 'v> {
-    pub(crate) fn is_end(&self) -> bool {
+    pub fn is_end(&self) -> bool {
         self.lhs_syntax.is_none() && self.rhs_syntax.is_none() && self.parents.is_empty()
     }
 
-    pub(crate) fn new(
+    pub fn new(
         lhs_syntax: Option<&'s Syntax<'s>>,
         rhs_syntax: Option<&'s Syntax<'s>>,
     ) -> Self {
@@ -295,7 +295,7 @@ impl<'s, 'v> Vertex<'s, 'v> {
 ///
 /// See [`compute_neighbours`] for all the edges available for a given `Vertex`.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub(crate) enum Edge {
+pub enum Edge {
     UnchangedNode {
         depth_difference: u32,
         /// Is this node just punctuation? We penalise this case,
@@ -321,7 +321,7 @@ pub(crate) enum Edge {
 }
 
 impl Edge {
-    pub(crate) fn cost(self) -> u32 {
+    pub fn cost(self) -> u32 {
         match self {
             // Matching nodes is always best.
             UnchangedNode {
@@ -517,7 +517,7 @@ fn pop_all_parents<'s, 'v>(
 ///
 /// This function is extremely hot and directly affects difftastic
 /// performance.
-pub(crate) fn compute_neighbours<'s, 'v>(
+pub fn compute_neighbours<'s, 'v>(
     v: &Vertex<'s, 'v>,
     alloc: &'v Bump,
     seen: &mut DftHashMap<&Vertex<'s, 'v>, SmallVec<[&'v Vertex<'s, 'v>; 2]>>,
@@ -814,7 +814,7 @@ pub(crate) fn compute_neighbours<'s, 'v>(
     alloc.alloc_slice_copy(neighbours.as_slice())
 }
 
-pub(crate) fn populate_change_map<'s, 'v>(
+pub fn populate_change_map<'s, 'v>(
     route: &[(Edge, &'v Vertex<'s, 'v>)],
     change_map: &mut ChangeMap<'s>,
 ) {

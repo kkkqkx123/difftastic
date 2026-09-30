@@ -4,11 +4,11 @@ use std::ops::Sub;
 
 use line_numbers::LineNumber;
 
-pub(crate) fn format_line_num(line_num: LineNumber) -> String {
+pub fn format_line_num(line_num: LineNumber) -> String {
     format!("{} ", line_num.display())
 }
 
-pub(crate) fn format_line_num_padded(line_num: LineNumber, column_width: usize) -> String {
+pub fn format_line_num_padded(line_num: LineNumber, column_width: usize) -> String {
     format!(
         "{:width$} ",
         line_num.as_usize() + 1,
@@ -20,11 +20,11 @@ pub(crate) fn format_line_num_padded(line_num: LineNumber, column_width: usize) 
 ///
 /// This is a trivial wrapper to make it clear when we want bytes not
 /// codepoints.
-pub(crate) fn byte_len(s: &str) -> usize {
+pub fn byte_len(s: &str) -> usize {
     s.len()
 }
 
-pub(crate) trait MaxLine {
+pub trait MaxLine {
     fn max_line(&self) -> LineNumber;
 }
 
@@ -45,7 +45,7 @@ impl<S: AsRef<str>> MaxLine for S {
 ///
 /// This differs from `str::lines`, which considers `""` to be zero
 /// lines and `"foo\n"` to be one line.
-pub(crate) fn split_on_newlines(s: &str) -> impl Iterator<Item = &str> {
+pub fn split_on_newlines(s: &str) -> impl Iterator<Item = &str> {
     s.split('\n').map(|l| {
         if let Some(l) = l.strip_suffix('\r') {
             l
@@ -55,7 +55,7 @@ pub(crate) fn split_on_newlines(s: &str) -> impl Iterator<Item = &str> {
     })
 }
 
-pub(crate) fn is_all_whitespace(s: &str) -> bool {
+pub fn is_all_whitespace(s: &str) -> bool {
     s.chars().all(|c| c.is_whitespace())
 }
 

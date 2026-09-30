@@ -40,7 +40,7 @@ use crate::diff::changes::{insert_deep_novel, insert_deep_unchanged, ChangeMap};
 use crate::parse::guess_language;
 use crate::parse::syntax::Syntax::{self, *};
 
-pub(crate) fn fix_all_sliders<'a>(
+pub fn fix_all_sliders<'a>(
     language: guess_language::Language,
     nodes: &[&'a Syntax<'a>],
     change_map: &mut ChangeMap<'a>,

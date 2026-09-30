@@ -53,7 +53,7 @@ use crate::hash::DftHashMap;
 use crate::parse::syntax::Syntax;
 
 #[derive(Debug)]
-pub(crate) struct ExceededGraphLimit {}
+pub struct ExceededGraphLimit {}
 
 /// Return the shortest route from `start` to the end vertex.
 fn shortest_vertex_path<'s, 'v>(
@@ -214,7 +214,7 @@ fn tree_count(root: Option<&Syntax>) -> u32 {
     std::iter::successors(root, |node| node.next_sibling()).count() as _
 }
 
-pub(crate) fn mark_syntax<'a>(
+pub fn mark_syntax<'a>(
     lhs_syntax: Option<&'a Syntax<'a>>,
     rhs_syntax: Option<&'a Syntax<'a>>,
     change_map: &mut ChangeMap<'a>,

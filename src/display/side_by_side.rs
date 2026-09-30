@@ -246,7 +246,7 @@ impl SourceDimensions {
     }
 }
 
-pub(crate) fn lines_with_novel(
+pub fn lines_with_novel(
     lhs_mps: &[MatchedPos],
     rhs_mps: &[MatchedPos],
 ) -> (DftHashSet<LineNumber>, DftHashSet<LineNumber>) {
@@ -424,7 +424,7 @@ fn visible_content_max_display_width(
     (lhs_content_max_width, rhs_content_max_width)
 }
 
-pub(crate) fn print(
+pub fn print(
     hunks: &[Hunk],
     display_options: &DisplayOptions,
     display_path: &str,

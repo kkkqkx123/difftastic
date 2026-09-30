@@ -11,7 +11,7 @@ use crate::exit_codes::EXIT_BAD_ARGUMENTS;
 use crate::hash::DftHashSet;
 use crate::options::FileArgument;
 
-pub(crate) fn read_file_or_die(path: &FileArgument) -> Vec<u8> {
+pub fn read_file_or_die(path: &FileArgument) -> Vec<u8> {
     match read_file_arg(path) {
         Ok(src) => src,
         Err(e) => {
@@ -21,7 +21,7 @@ pub(crate) fn read_file_or_die(path: &FileArgument) -> Vec<u8> {
     }
 }
 
-pub(crate) fn read_files_or_die(
+pub fn read_files_or_die(
     lhs_path: &FileArgument,
     rhs_path: &FileArgument,
     missing_as_empty: bool,
@@ -93,7 +93,7 @@ fn eprint_read_error(file_arg: &FileArgument, e: &std::io::Error) {
     };
 }
 
-pub(crate) fn read_or_die(path: &Path) -> Vec<u8> {
+pub fn read_or_die(path: &Path) -> Vec<u8> {
     match fs::read(path) {
         Ok(src) => src,
         Err(e) => {
@@ -130,7 +130,7 @@ fn u16_from_bytes(bytes: &[u8]) -> Vec<u16> {
 }
 
 #[derive(Debug, Eq, PartialEq)]
-pub(crate) enum ProbableFileKind {
+pub enum ProbableFileKind {
     Text(String),
     Binary,
 }
@@ -147,7 +147,7 @@ pub(crate) enum ProbableFileKind {
 /// .gitattributes.
 ///
 /// <https://git-scm.com/docs/gitattributes#_working_tree_encoding>
-pub(crate) fn guess_content(
+pub fn guess_content(
     bytes: &[u8],
     path: &FileArgument,
     binary_overrides: &[glob::Pattern],
@@ -295,7 +295,7 @@ fn relative_file_paths_in_dir(dir: &Path) -> Vec<PathBuf> {
 /// that occur in at least one directory.
 ///
 /// Attempts to preserve the ordering of files in both directories.
-pub(crate) fn relative_paths_in_either(lhs_dir: &Path, rhs_dir: &Path) -> Vec<PathBuf> {
+pub fn relative_paths_in_either(lhs_dir: &Path, rhs_dir: &Path) -> Vec<PathBuf> {
     let lhs_paths = relative_file_paths_in_dir(lhs_dir);
     let rhs_paths = relative_file_paths_in_dir(rhs_dir);
 

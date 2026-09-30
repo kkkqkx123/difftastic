@@ -14,38 +14,38 @@ use crate::exit_codes::EXIT_BAD_ARGUMENTS;
 use crate::parse::guess_language::{language_override_from_name, LanguageOverride};
 use crate::version::VERSION;
 
-pub(crate) const DEFAULT_BYTE_LIMIT: usize = 1_000_000;
+pub const DEFAULT_BYTE_LIMIT: usize = 1_000_000;
 // Chosen experimentally: this is sufficiently many for all the sample
 // files (the highest is slow_1.rs/slow_2.rs at 1.3M nodes), but
 // small enough to terminate in ~5 seconds like the test file in #306.
-pub(crate) const DEFAULT_GRAPH_LIMIT: usize = 3_000_000;
-pub(crate) const DEFAULT_PARSE_ERROR_LIMIT: usize = 0;
+pub const DEFAULT_GRAPH_LIMIT: usize = 3_000_000;
+pub const DEFAULT_PARSE_ERROR_LIMIT: usize = 0;
 
-pub(crate) const DEFAULT_TAB_WIDTH: usize = 4;
+pub const DEFAULT_TAB_WIDTH: usize = 4;
 
-pub(crate) const USAGE: &str = concat!(env!("CARGO_BIN_NAME"), " [OPTIONS] OLD-PATH NEW-PATH");
+pub const USAGE: &str = concat!("difft", " [OPTIONS] OLD-PATH NEW-PATH");
 
 #[derive(Debug, Clone, Copy)]
-pub(crate) enum ColorOutput {
+pub enum ColorOutput {
     Always,
     Auto,
     Never,
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct DisplayOptions {
-    pub(crate) background_color: BackgroundColor,
-    pub(crate) use_color: bool,
-    pub(crate) display_mode: DisplayMode,
-    pub(crate) print_unchanged: bool,
-    pub(crate) tab_width: usize,
-    pub(crate) terminal_width: usize,
-    pub(crate) num_context_lines: u32,
-    pub(crate) syntax_highlight: bool,
-    pub(crate) sort_paths: bool,
+pub struct DisplayOptions {
+    pub background_color: BackgroundColor,
+    pub use_color: bool,
+    pub display_mode: DisplayMode,
+    pub print_unchanged: bool,
+    pub tab_width: usize,
+    pub terminal_width: usize,
+    pub num_context_lines: u32,
+    pub syntax_highlight: bool,
+    pub sort_paths: bool,
 }
 
-pub(crate) const DEFAULT_TERMINAL_WIDTH: usize = 80;
+pub const DEFAULT_TERMINAL_WIDTH: usize = 80;
 
 impl Default for DisplayOptions {
     fn default() -> Self {
@@ -64,13 +64,13 @@ impl Default for DisplayOptions {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct DiffOptions {
-    pub(crate) graph_limit: usize,
-    pub(crate) byte_limit: usize,
-    pub(crate) parse_error_limit: usize,
-    pub(crate) check_only: bool,
-    pub(crate) ignore_comments: bool,
-    pub(crate) strip_cr: bool,
+pub struct DiffOptions {
+    pub graph_limit: usize,
+    pub byte_limit: usize,
+    pub parse_error_limit: usize,
+    pub check_only: bool,
+    pub ignore_comments: bool,
+    pub strip_cr: bool,
 }
 
 impl Default for DiffOptions {
@@ -87,7 +87,7 @@ impl Default for DiffOptions {
 }
 
 fn app() -> clap::Command {
-    let bin_name = env!("CARGO_BIN_NAME");
+    let bin_name = "difft";
 
     let mut after_help = String::new();
     after_help
@@ -291,13 +291,13 @@ json: Output the results as a machine-readable JSON array with an element per fi
                 .action(ArgAction::Append)
                 .help(concat!("Associate this glob pattern with this language, overriding normal language detection. For example:
 
-$ ", env!("CARGO_BIN_NAME"), " --override='*.c:C++' old.c new.c
+$ ", "difft", " --override='*.c:C++' old.c new.c
 
 See --list-languages for the list of language names. Language names are matched case insensitively. Overrides may also specify the language \"text\" to treat a file as plain text.
 
 This argument may be given more than once. For example:
 
-$ ", env!("CARGO_BIN_NAME"), " --override='CustomFile:json' --override='*.c:text' old.c new.c
+$ ", "difft", " --override='CustomFile:json' --override='*.c:text' old.c new.c
 
 To configure multiple overrides using environment variables, difftastic also accepts DFT_OVERRIDE_1 up to DFT_OVERRIDE_9.
 
@@ -314,11 +314,11 @@ When multiple overrides are specified, the first matching override wins."))
                 .action(ArgAction::Append)
                 .help(concat!("Always treat file names matching this glob as binary files, ignoring the default heuristics for binary detection. For example:
 
-$ ", env!("CARGO_BIN_NAME"), " --override-binary='*.gz' old.gz new.gz
+$ ", "difft", " --override-binary='*.gz' old.gz new.gz
 
 This argument may be given more than once. For example:
 
-$ ", env!("CARGO_BIN_NAME"), " --override-binary='*.gz' --override-binary='foo.pickle' old.gz new.gz
+$ ", "difft", " --override-binary='*.gz' --override-binary='foo.pickle' old.gz new.gz
 
 To configure multiple overrides using environment variables, difftastic also accepts DFT_OVERRIDE_BINARY_1 up to DFT_OVERRIDE_BINARY_9.
 
@@ -383,7 +383,7 @@ A value of 0 means that any parse error will make difftastic use a line-oriented
 }
 
 #[derive(Debug, Copy, Clone)]
-pub(crate) enum DisplayMode {
+pub enum DisplayMode {
     Inline,
     SideBySide,
     SideBySideShowBoth,
@@ -391,14 +391,14 @@ pub(crate) enum DisplayMode {
 }
 
 #[derive(Eq, PartialEq, Debug)]
-pub(crate) enum FileArgument {
+pub enum FileArgument {
     NamedPath(std::path::PathBuf),
     Stdin,
     DevNull,
 }
 
 impl FileArgument {
-    pub(crate) fn permissions(&self) -> Option<FilePermissions> {
+    pub fn permissions(&self) -> Option<FilePermissions> {
         match self {
             Self::NamedPath(path) => {
                 // When used with `git difftool`, the first argument
@@ -424,7 +424,7 @@ impl FileArgument {
 /// how to display them, so internally this is just a human-friendly
 /// string.
 #[derive(Debug, Eq, PartialEq)]
-pub(crate) struct FilePermissions(String);
+pub struct FilePermissions(String);
 
 impl Display for FilePermissions {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -484,7 +484,7 @@ fn relative_to_current(path: &Path) -> PathBuf {
 impl FileArgument {
     /// Return a `FileArgument` representing this command line
     /// argument.
-    pub(crate) fn from_cli_argument(arg: &OsStr) -> Self {
+    pub fn from_cli_argument(arg: &OsStr) -> Self {
         if arg == "/dev/null" {
             Self::DevNull
         } else if arg == "-" {
@@ -496,7 +496,7 @@ impl FileArgument {
 
     /// Return a `FileArgument` that always represents a path that
     /// exists, with the exception of `/dev/null`, which is turned into [FileArgument::DevNull].
-    pub(crate) fn from_path_argument(arg: &OsStr) -> Self {
+    pub fn from_path_argument(arg: &OsStr) -> Self {
         // For new and deleted files, Git passes `/dev/null` as the reference file.
         if arg == "/dev/null" {
             Self::DevNull
@@ -518,7 +518,7 @@ impl Display for FileArgument {
     }
 }
 
-pub(crate) enum Mode {
+pub enum Mode {
     Diff {
         diff_options: DiffOptions,
         display_options: DisplayOptions,
@@ -722,7 +722,7 @@ fn parse_binary_overrides_or_die(glob_strs: &[String]) -> Vec<glob::Pattern> {
 }
 
 /// Parse CLI arguments passed to the binary.
-pub(crate) fn parse_args() -> Mode {
+pub fn parse_args() -> Mode {
     let matches = app().get_matches();
 
     let color_output = match matches
@@ -991,7 +991,7 @@ pub(crate) fn parse_args() -> Mode {
                 let bin_name = if let Some(first_arg) = std::env::args_os().next() {
                     first_arg.to_string_lossy().to_string()
                 } else {
-                    env!("CARGO_BIN_NAME").to_owned()
+                    "difft".to_owned()
                 };
 
                 print_error(
@@ -1062,7 +1062,7 @@ fn detect_terminal_width() -> usize {
     DEFAULT_TERMINAL_WIDTH
 }
 
-pub(crate) fn should_use_color(color_output: ColorOutput) -> bool {
+pub fn should_use_color(color_output: ColorOutput) -> bool {
     match color_output {
         ColorOutput::Always => true,
         ColorOutput::Auto => detect_color_support(),

@@ -20,7 +20,7 @@ use crate::parse::syntax::{AtomKind, Syntax};
 /// nodes, and what languages we should parse them as.
 ///
 /// Note that we don't support sub-languages more than one layer deep.
-pub(crate) struct TreeSitterSubLanguage {
+pub struct TreeSitterSubLanguage {
     /// How to identify a node. The query must contain exactly one
     /// capture group (the name is arbitrary).
     query: ts::Query,
@@ -30,9 +30,9 @@ pub(crate) struct TreeSitterSubLanguage {
 }
 
 /// Configuration for a tree-sitter parser.
-pub(crate) struct TreeSitterConfig {
+pub struct TreeSitterConfig {
     /// The tree-sitter language parser.
-    pub(crate) language: ts::Language,
+    pub language: ts::Language,
 
     /// Force these tree-sitter nodes to be difftastic atoms and
     /// ignore their children.
@@ -102,7 +102,7 @@ const OCAML_ATOM_NODES: [&str; 6] = [
     "attribute_id",
 ];
 
-pub(crate) fn from_language(language: guess::Language) -> &'static TreeSitterConfig {
+pub fn from_language(language: guess::Language) -> &'static TreeSitterConfig {
     // Constructing a tree sitter query is relatively expensive: it
     // can take tens of milliseconds.
     //
@@ -1293,7 +1293,7 @@ fn build_config(language: guess::Language) -> TreeSitterConfig {
 }
 
 /// Parse `src` with tree-sitter.
-pub(crate) fn to_tree(src: &str, config: &TreeSitterConfig) -> tree_sitter::Tree {
+pub fn to_tree(src: &str, config: &TreeSitterConfig) -> tree_sitter::Tree {
     let mut parser = ts::Parser::new();
     parser
         .set_language(&config.language)
@@ -1303,9 +1303,9 @@ pub(crate) fn to_tree(src: &str, config: &TreeSitterConfig) -> tree_sitter::Tree
 }
 
 #[derive(Debug)]
-pub(crate) struct ExceededByteLimit(pub(crate) usize);
+pub struct ExceededByteLimit(pub usize);
 
-pub(crate) fn to_tree_with_limit(
+pub fn to_tree_with_limit(
     diff_options: &DiffOptions,
     config: &TreeSitterConfig,
     lhs_src: &str,
@@ -1322,7 +1322,7 @@ pub(crate) fn to_tree_with_limit(
 /// Find any nodes that can be parsed as other languages (e.g. JavaScript embedded in HTML),
 /// and return a map of their node IDs mapped to parsed trees. Every time we see such a node,
 /// we will ignore it and recurse into the root node of the given tree instead.
-pub(crate) fn parse_subtrees(
+pub fn parse_subtrees(
     src: &str,
     config: &TreeSitterConfig,
     tree: &tree_sitter::Tree,
@@ -1460,7 +1460,7 @@ fn tree_highlights(
     }
 }
 
-pub(crate) fn print_tree(src: &str, tree: &tree_sitter::Tree) {
+pub fn print_tree(src: &str, tree: &tree_sitter::Tree) {
     let mut cursor = tree.walk();
     print_cursor(src, &mut cursor, 0);
 }
@@ -1494,7 +1494,7 @@ fn print_cursor(src: &str, cursor: &mut ts::TreeCursor, depth: usize) {
     }
 }
 
-pub(crate) fn comment_positions(
+pub fn comment_positions(
     tree: &tree_sitter::Tree,
     src: &str,
     config: &TreeSitterConfig,
@@ -1517,18 +1517,18 @@ pub(crate) fn comment_positions(
 }
 
 #[derive(Debug)]
-pub(crate) struct ExceededParseErrorLimit {
+pub struct ExceededParseErrorLimit {
     /// The total number of parse errors found across both inputs.
-    pub(crate) error_count: usize,
+    pub error_count: usize,
     /// The line, zero-indexed column, and side of the first parse
     /// error, if any. The right-hand side is preferred when both sides
     /// have errors.
-    pub(crate) first_error_pos: Option<(LineNumber, usize, Side)>,
+    pub first_error_pos: Option<(LineNumber, usize, Side)>,
 }
 
 /// Parse error information accumulated while walking a tree-sitter AST.
 #[derive(Debug, Default, Clone, Copy)]
-pub(crate) struct ParseErrors {
+pub struct ParseErrors {
     /// The number of error nodes seen.
     count: usize,
     /// The line and zero-indexed column of the first error node seen,
@@ -1547,7 +1547,7 @@ impl ParseErrors {
     }
 }
 
-pub(crate) fn to_syntax_with_limit<'a>(
+pub fn to_syntax_with_limit<'a>(
     lhs_src: &str,
     rhs_src: &str,
     lhs_tree: &tree_sitter::Tree,
@@ -1591,7 +1591,7 @@ pub(crate) fn to_syntax_with_limit<'a>(
     Ok((lhs_nodes, rhs_nodes))
 }
 
-pub(crate) fn to_syntax<'a>(
+pub fn to_syntax<'a>(
     tree: &tree_sitter::Tree,
     src: &str,
     arena: &'a Arena<Syntax<'a>>,
@@ -1639,7 +1639,7 @@ pub(crate) fn to_syntax<'a>(
 }
 
 /// Parse `src` with tree-sitter and convert to difftastic Syntax.
-pub(crate) fn parse<'a>(
+pub fn parse<'a>(
     arena: &'a Arena<Syntax<'a>>,
     src: &str,
     config: &TreeSitterConfig,
@@ -1699,7 +1699,7 @@ fn find_delim_positions(
 }
 
 #[derive(Debug)]
-pub(crate) struct HighlightedNodeIds {
+pub struct HighlightedNodeIds {
     keyword_ids: DftHashSet<usize>,
     comment_ids: DftHashSet<usize>,
     string_ids: DftHashSet<usize>,

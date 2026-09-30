@@ -1,7 +1,7 @@
-pub(crate) mod changes;
+pub mod changes;
 mod graph;
-pub(crate) mod lcs_diff;
-pub(crate) mod shortest_path;
-pub(crate) mod sliders;
+pub mod lcs_diff;
+pub mod shortest_path;
+pub mod sliders;
 mod stack;
-pub(crate) mod unchanged;
+pub mod unchanged;
