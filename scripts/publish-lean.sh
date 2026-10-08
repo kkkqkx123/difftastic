@@ -21,7 +21,7 @@ set -euo pipefail
 
 PUSH=false
 DRY_RUN=false
-SRC="feat"
+SRC=feat/lib
 for arg in "$@"; do
   case "$arg" in
     --push) PUSH=true ;;
