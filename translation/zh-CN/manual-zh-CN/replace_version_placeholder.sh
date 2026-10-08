@@ -1,0 +1,1 @@
+../../../manual/replace_version_placeholder.sh

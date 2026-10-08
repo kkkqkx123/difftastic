@@ -1,0 +1,1692 @@
+From ee64826d599e0517e7b764ed166db2ce87065eaf Mon Sep 17 00:00:00 2001
+From: kkkqkx123 <kkkqkx123@noreply.gitlab.com>
+Date: Wed, 30 Sep 2026 17:02:59 +0800
+Subject: [PATCH] Add library entry point for difftastic-core
+
+Expose difftastic as a library (src/lib.rs), add [lib] section to
+Cargo.toml, promote pub(crate) to pub and replace the
+CARGO_BIN_NAME macro with a literal for library builds.
+
+Co-Authored-By: AtomCode (glm5.3-flash) <noreply@atomgit.com>
+---
+ Cargo.toml                      |  5 +++
+ src/conflicts.rs                | 16 +++----
+ src/constants.rs                |  2 +-
+ src/diff/changes.rs             | 12 ++---
+ src/diff/graph.rs               | 22 +++++-----
+ src/diff/lcs_diff.rs            |  4 +-
+ src/diff/mod.rs                 | 10 ++---
+ src/diff/shortest_path.rs       |  4 +-
+ src/diff/sliders.rs             |  2 +-
+ src/diff/stack.rs               | 14 +++---
+ src/diff/unchanged.rs           |  2 +-
+ src/display/context.rs          | 14 +++---
+ src/display/hunks.rs            | 18 ++++----
+ src/display/inline.rs           |  2 +-
+ src/display/json.rs             |  4 +-
+ src/display/mod.rs              | 12 ++---
+ src/display/side_by_side.rs     |  4 +-
+ src/display/style.rs            | 24 +++++-----
+ src/exit_codes.rs               |  6 +--
+ src/files.rs                    | 12 ++---
+ src/gitattributes.rs            |  4 +-
+ src/hash.rs                     |  4 +-
+ src/lib.rs                      | 38 ++++++++++++++++
+ src/line_parser.rs              |  2 +-
+ src/lines.rs                    | 12 ++---
+ src/options.rs                  | 78 ++++++++++++++++-----------------
+ src/parse/guess_language.rs     | 12 ++---
+ src/parse/mod.rs                |  6 +--
+ src/parse/syntax.rs             | 60 ++++++++++++-------------
+ src/parse/tree_sitter_parser.rs | 36 +++++++--------
+ src/summary.rs                  | 28 ++++++------
+ src/version.rs                  | 18 ++++----
+ src/words.rs                    |  4 +-
+ 33 files changed, 267 insertions(+), 224 deletions(-)
+ create mode 100644 src/lib.rs
+
+diff --git a/Cargo.toml b/Cargo.toml
+index 9413a1c27..099a916b3 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -26,10 +26,15 @@ include = [
+         "/vendored_parsers/highlights/*.scm",
+         "/vendored_parsers/*-src/**/*.c",
+         "/vendored_parsers/*-src/**/*.h",
++        "/vendored_parsers/*-src/**/*.cc",
+         "/LICENSE",
+         "/README.md",
+ ]
+ 
++[lib]
++name = "difftastic_core"
++path = "src/lib.rs"
++
+ [package.metadata.binstall]
+ pkg-url = "{ repo }/releases/download/{ version }/difft-{ version }-{ target }.{ archive-format }"
+ 
+diff --git a/src/conflicts.rs b/src/conflicts.rs
+index 466021245..d12449c41 100644
+--- a/src/conflicts.rs
++++ b/src/conflicts.rs
+@@ -12,22 +12,22 @@ enum ConflictState {
+     Right,
+ }
+ 
+-pub(crate) const START_LHS_MARKER: &str = "<<<<<<<";
++pub const START_LHS_MARKER: &str = "<<<<<<<";
+ const START_BASE_MARKER: &str = "|||||||";
+ const START_RHS_MARKER: &str = "=======";
+ const END_RHS_MARKER: &str = ">>>>>>>";
+ 
+-pub(crate) struct ConflictFiles {
+-    pub(crate) lhs_name: Option<String>,
+-    pub(crate) lhs_content: String,
+-    pub(crate) rhs_name: Option<String>,
+-    pub(crate) rhs_content: String,
+-    pub(crate) num_conflicts: usize,
++pub struct ConflictFiles {
++    pub lhs_name: Option<String>,
++    pub lhs_content: String,
++    pub rhs_name: Option<String>,
++    pub rhs_content: String,
++    pub num_conflicts: usize,
+ }
+ 
+ /// Convert a string with conflict markers into the two conflicting
+ /// file contents.
+-pub(crate) fn apply_conflict_markers(s: &str) -> Result<ConflictFiles, String> {
++pub fn apply_conflict_markers(s: &str) -> Result<ConflictFiles, String> {
+     let mut lhs_name: Option<String> = None;
+     let mut rhs_name: Option<String> = None;
+ 
+diff --git a/src/constants.rs b/src/constants.rs
+index a7f14ca42..b22482978 100644
+--- a/src/constants.rs
++++ b/src/constants.rs
+@@ -1,5 +1,5 @@
+ #[derive(Debug, Copy, Clone, PartialEq, Eq)]
+-pub(crate) enum Side {
++pub enum Side {
+     /// The left-hand side, or the 'before' file. Often abbreviated to
+     /// LHS.
+     Left,
+diff --git a/src/diff/changes.rs b/src/diff/changes.rs
+index e444dc03e..d16669442 100644
+--- a/src/diff/changes.rs
++++ b/src/diff/changes.rs
+@@ -4,7 +4,7 @@ use crate::hash::DftHashMap;
+ use crate::parse::syntax::{AtomKind, Syntax, SyntaxId};
+ 
+ #[derive(PartialEq, Eq, Clone, Copy)]
+-pub(crate) enum ChangeKind<'a> {
++pub enum ChangeKind<'a> {
+     /// This node is shallowly unchanged. For lists, this means that
+     /// the delimiters match, but there may still be some differences
+     /// in the children between LHS and RHS.
+@@ -21,21 +21,21 @@ pub(crate) enum ChangeKind<'a> {
+ }
+ 
+ #[derive(Debug, Default)]
+-pub(crate) struct ChangeMap<'a> {
++pub struct ChangeMap<'a> {
+     changes: DftHashMap<SyntaxId, ChangeKind<'a>>,
+ }
+ 
+ impl<'a> ChangeMap<'a> {
+-    pub(crate) fn insert(&mut self, node: &'a Syntax<'a>, ck: ChangeKind<'a>) {
++    pub fn insert(&mut self, node: &'a Syntax<'a>, ck: ChangeKind<'a>) {
+         self.changes.insert(node.id(), ck);
+     }
+ 
+-    pub(crate) fn get(&self, node: &Syntax<'a>) -> Option<ChangeKind<'a>> {
++    pub fn get(&self, node: &Syntax<'a>) -> Option<ChangeKind<'a>> {
+         self.changes.get(&node.id()).copied()
+     }
+ }
+ 
+-pub(crate) fn insert_deep_unchanged<'a>(
++pub fn insert_deep_unchanged<'a>(
+     node: &'a Syntax<'a>,
+     opposite_node: &'a Syntax<'a>,
+     change_map: &mut ChangeMap<'a>,
+@@ -90,7 +90,7 @@ pub(crate) fn insert_deep_unchanged<'a>(
+     }
+ }
+ 
+-pub(crate) fn insert_deep_novel<'a>(node: &'a Syntax<'a>, change_map: &mut ChangeMap<'a>) {
++pub fn insert_deep_novel<'a>(node: &'a Syntax<'a>, change_map: &mut ChangeMap<'a>) {
+     change_map.insert(node, ChangeKind::Novel);
+ 
+     if let Syntax::List { children, .. } = node {
+diff --git a/src/diff/graph.rs b/src/diff/graph.rs
+index 5c498576e..8a5e12ccf 100644
+--- a/src/diff/graph.rs
++++ b/src/diff/graph.rs
+@@ -48,21 +48,21 @@ use crate::parse::syntax::{AtomKind, Syntax, SyntaxId};
+ /// Vertices are arena allocated (the 'v lifetime) and have references
+ /// to syntax nodes (the 's lifetime).
+ #[derive(Debug, Clone)]
+-pub(crate) struct Vertex<'s, 'v> {
++pub struct Vertex<'s, 'v> {
+     /// The neighbours of this vertex. This is computed lazily, on
+     /// first access.
+-    pub(crate) neighbours: OnceCell<&'v [(Edge, &'v Vertex<'s, 'v>)]>,
++    pub neighbours: OnceCell<&'v [(Edge, &'v Vertex<'s, 'v>)]>,
+     /// The predecessor of this vertex in the shortest route found so
+     /// far.
+     ///
+     /// This can change as Dijkstra runs: the first time we see the
+     /// node in the to-visit set, we may not have reached it by the
+     /// shortest route.
+-    pub(crate) predecessor: Cell<Option<(u32, &'v Vertex<'s, 'v>)>>,
++    pub predecessor: Cell<Option<(u32, &'v Vertex<'s, 'v>)>>,
+     // TODO: experiment with storing SyntaxId only, and have a HashMap
+     // from SyntaxId to &Syntax.
+-    pub(crate) lhs_syntax: Option<&'s Syntax<'s>>,
+-    pub(crate) rhs_syntax: Option<&'s Syntax<'s>>,
++    pub lhs_syntax: Option<&'s Syntax<'s>>,
++    pub rhs_syntax: Option<&'s Syntax<'s>>,
+     parents: Stack<'v, EnteredDelimiter<'s, 'v>>,
+     lhs_parent_id: Option<SyntaxId>,
+     rhs_parent_id: Option<SyntaxId>,
+@@ -266,11 +266,11 @@ fn push_rhs_delimiter<'s, 'v>(
+ }
+ 
+ impl<'s, 'v> Vertex<'s, 'v> {
+-    pub(crate) fn is_end(&self) -> bool {
++    pub fn is_end(&self) -> bool {
+         self.lhs_syntax.is_none() && self.rhs_syntax.is_none() && self.parents.is_empty()
+     }
+ 
+-    pub(crate) fn new(
++    pub fn new(
+         lhs_syntax: Option<&'s Syntax<'s>>,
+         rhs_syntax: Option<&'s Syntax<'s>>,
+     ) -> Self {
+@@ -295,7 +295,7 @@ impl<'s, 'v> Vertex<'s, 'v> {
+ ///
+ /// See [`compute_neighbours`] for all the edges available for a given `Vertex`.
+ #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+-pub(crate) enum Edge {
++pub enum Edge {
+     UnchangedNode {
+         depth_difference: u32,
+         /// Is this node just punctuation? We penalise this case,
+@@ -321,7 +321,7 @@ pub(crate) enum Edge {
+ }
+ 
+ impl Edge {
+-    pub(crate) fn cost(self) -> u32 {
++    pub fn cost(self) -> u32 {
+         match self {
+             // Matching nodes is always best.
+             UnchangedNode {
+@@ -517,7 +517,7 @@ fn pop_all_parents<'s, 'v>(
+ ///
+ /// This function is extremely hot and directly affects difftastic
+ /// performance.
+-pub(crate) fn compute_neighbours<'s, 'v>(
++pub fn compute_neighbours<'s, 'v>(
+     v: &Vertex<'s, 'v>,
+     alloc: &'v Bump,
+     seen: &mut DftHashMap<&Vertex<'s, 'v>, SmallVec<[&'v Vertex<'s, 'v>; 2]>>,
+@@ -814,7 +814,7 @@ pub(crate) fn compute_neighbours<'s, 'v>(
+     alloc.alloc_slice_copy(neighbours.as_slice())
+ }
+ 
+-pub(crate) fn populate_change_map<'s, 'v>(
++pub fn populate_change_map<'s, 'v>(
+     route: &[(Edge, &'v Vertex<'s, 'v>)],
+     change_map: &mut ChangeMap<'s>,
+ ) {
+diff --git a/src/diff/lcs_diff.rs b/src/diff/lcs_diff.rs
+index bf1b5a750..ecae4ac9c 100644
+--- a/src/diff/lcs_diff.rs
++++ b/src/diff/lcs_diff.rs
+@@ -12,7 +12,7 @@ use std::hash::Hash;
+ use imara_diff::{Algorithm, Diff, InternedInput, Interner};
+ 
+ #[derive(Debug, PartialEq)]
+-pub(crate) enum DiffResult<T> {
++pub enum DiffResult<T> {
+     /// Both sides match.
+     Both(T, T),
+     /// Novel to LHS.
+@@ -22,7 +22,7 @@ pub(crate) enum DiffResult<T> {
+ }
+ 
+ /// Compute a linear diff between `lhs` and `rhs`.
+-pub(crate) fn slice<'a, T: Eq + Hash>(lhs: &'a [T], rhs: &'a [T]) -> Vec<DiffResult<&'a T>> {
++pub fn slice<'a, T: Eq + Hash>(lhs: &'a [T], rhs: &'a [T]) -> Vec<DiffResult<&'a T>> {
+     let mut input: InternedInput<&'a T> = InternedInput {
+         before: Vec::with_capacity(lhs.len()),
+         after: Vec::with_capacity(rhs.len()),
+diff --git a/src/diff/mod.rs b/src/diff/mod.rs
+index 6dd80ff1b..545d1152f 100644
+--- a/src/diff/mod.rs
++++ b/src/diff/mod.rs
+@@ -1,7 +1,7 @@
+-pub(crate) mod changes;
++pub mod changes;
+ mod graph;
+-pub(crate) mod lcs_diff;
+-pub(crate) mod shortest_path;
+-pub(crate) mod sliders;
++pub mod lcs_diff;
++pub mod shortest_path;
++pub mod sliders;
+ mod stack;
+-pub(crate) mod unchanged;
++pub mod unchanged;
+diff --git a/src/diff/shortest_path.rs b/src/diff/shortest_path.rs
+index 3494db18e..e05505e0e 100644
+--- a/src/diff/shortest_path.rs
++++ b/src/diff/shortest_path.rs
+@@ -53,7 +53,7 @@ use crate::hash::DftHashMap;
+ use crate::parse::syntax::Syntax;
+ 
+ #[derive(Debug)]
+-pub(crate) struct ExceededGraphLimit {}
++pub struct ExceededGraphLimit {}
+ 
+ /// Return the shortest route from `start` to the end vertex.
+ fn shortest_vertex_path<'s, 'v>(
+@@ -214,7 +214,7 @@ fn tree_count(root: Option<&Syntax>) -> u32 {
+     std::iter::successors(root, |node| node.next_sibling()).count() as _
+ }
+ 
+-pub(crate) fn mark_syntax<'a>(
++pub fn mark_syntax<'a>(
+     lhs_syntax: Option<&'a Syntax<'a>>,
+     rhs_syntax: Option<&'a Syntax<'a>>,
+     change_map: &mut ChangeMap<'a>,
+diff --git a/src/diff/sliders.rs b/src/diff/sliders.rs
+index ebfe70fb7..7280a699f 100644
+--- a/src/diff/sliders.rs
++++ b/src/diff/sliders.rs
+@@ -40,7 +40,7 @@ use crate::diff::changes::{insert_deep_novel, insert_deep_unchanged, ChangeMap};
+ use crate::parse::guess_language;
+ use crate::parse::syntax::Syntax::{self, *};
+ 
+-pub(crate) fn fix_all_sliders<'a>(
++pub fn fix_all_sliders<'a>(
+     language: guess_language::Language,
+     nodes: &[&'a Syntax<'a>],
+     change_map: &mut ChangeMap<'a>,
+diff --git a/src/diff/stack.rs b/src/diff/stack.rs
+index 337716f3e..fc4752568 100644
+--- a/src/diff/stack.rs
++++ b/src/diff/stack.rs
+@@ -11,7 +11,7 @@ struct Node<'b, T> {
+ /// This is similar to `Stack` from the rpds crate, but it's faster
+ /// and uses less memory.
+ #[derive(Debug, Clone, Default)]
+-pub(crate) struct Stack<'b, T> {
++pub struct Stack<'b, T> {
+     head: Option<&'b Node<'b, T>>,
+ }
+ 
+@@ -45,19 +45,19 @@ impl<T: PartialEq> PartialEq for Stack<'_, T> {
+ impl<T: Eq> Eq for Stack<'_, T> {}
+ 
+ impl<'b, T> Stack<'b, T> {
+-    pub(crate) fn new() -> Self {
++    pub fn new() -> Self {
+         Self { head: None }
+     }
+ 
+-    pub(crate) fn peek(&self) -> Option<&T> {
++    pub fn peek(&self) -> Option<&T> {
+         self.head.map(|n| &n.val)
+     }
+ 
+-    pub(crate) fn pop(&self) -> Option<Self> {
++    pub fn pop(&self) -> Option<Self> {
+         self.head.map(|n| Self { head: n.next })
+     }
+ 
+-    pub(crate) fn push(&self, v: T, alloc: &'b Bump) -> Self {
++    pub fn push(&self, v: T, alloc: &'b Bump) -> Self {
+         Self {
+             head: Some(alloc.alloc(Node {
+                 val: v,
+@@ -67,11 +67,11 @@ impl<'b, T> Stack<'b, T> {
+     }
+ 
+     // O(n)
+-    pub(crate) fn size(&self) -> usize {
++    pub fn size(&self) -> usize {
+         std::iter::successors(self.head, |&n| n.next).count()
+     }
+ 
+-    pub(crate) fn is_empty(&self) -> bool {
++    pub fn is_empty(&self) -> bool {
+         self.head.is_none()
+     }
+ }
+diff --git a/src/diff/unchanged.rs b/src/diff/unchanged.rs
+index 3f87f8279..8d9ccbffa 100644
+--- a/src/diff/unchanged.rs
++++ b/src/diff/unchanged.rs
+@@ -16,7 +16,7 @@ const MOSTLY_UNCHANGED_MIN_COMMON_CHILDREN: usize = 4;
+ ///
+ /// Split the remaining nodes into subsequences that need proper
+ /// diffing, and return those subsequences.
+-pub(crate) fn mark_unchanged<'a>(
++pub fn mark_unchanged<'a>(
+     lhs_nodes: &[&'a Syntax<'a>],
+     rhs_nodes: &[&'a Syntax<'a>],
+     change_map: &mut ChangeMap<'a>,
+diff --git a/src/display/context.rs b/src/display/context.rs
+index 7cc02a3b0..6fa413942 100644
+--- a/src/display/context.rs
++++ b/src/display/context.rs
+@@ -7,7 +7,7 @@ use line_numbers::LineNumber;
+ use crate::hash::{DftHashMap, DftHashSet};
+ use crate::parse::syntax::{zip_repeat_shorter, MatchKind, MatchedPos};
+ 
+-pub(crate) fn all_matched_lines_filled(
++pub fn all_matched_lines_filled(
+     lhs_mps: &[MatchedPos],
+     rhs_mps: &[MatchedPos],
+     lhs_lines: &[&str],
+@@ -321,7 +321,7 @@ fn match_preceding_blanks(
+     res
+ }
+ 
+-pub(crate) fn opposite_positions(
++pub fn opposite_positions(
+     mps: &[MatchedPos],
+ ) -> DftHashMap<LineNumber, DftHashSet<LineNumber>> {
+     let mut res: DftHashMap<LineNumber, DftHashSet<LineNumber>> =
+@@ -451,12 +451,12 @@ fn pad_after(ln: LineNumber, max_line: LineNumber, num_context_lines: usize) ->
+     line_nums
+ }
+ 
+-pub(crate) fn flip_tuple<Tx: Copy, Ty: Copy>(pair: (Tx, Ty)) -> (Ty, Tx) {
++pub fn flip_tuple<Tx: Copy, Ty: Copy>(pair: (Tx, Ty)) -> (Ty, Tx) {
+     let (x, y) = pair;
+     (y, x)
+ }
+ 
+-pub(crate) fn flip_tuples<Tx: Copy, Ty: Copy>(items: &[(Tx, Ty)]) -> Vec<(Ty, Tx)> {
++pub fn flip_tuples<Tx: Copy, Ty: Copy>(items: &[(Tx, Ty)]) -> Vec<(Ty, Tx)> {
+     items.iter().copied().map(flip_tuple).collect()
+ }
+ 
+@@ -512,7 +512,7 @@ fn after_with_opposites(
+     res
+ }
+ 
+-pub(crate) fn calculate_before_context(
++pub fn calculate_before_context(
+     lines: &[(Option<LineNumber>, Option<LineNumber>)],
+     opposite_to_lhs: &DftHashMap<LineNumber, DftHashSet<LineNumber>>,
+     opposite_to_rhs: &DftHashMap<LineNumber, DftHashSet<LineNumber>>,
+@@ -534,7 +534,7 @@ pub(crate) fn calculate_before_context(
+     }
+ }
+ 
+-pub(crate) fn calculate_after_context(
++pub fn calculate_after_context(
+     lines: &[(Option<LineNumber>, Option<LineNumber>)],
+     opposite_to_lhs: &DftHashMap<LineNumber, DftHashSet<LineNumber>>,
+     opposite_to_rhs: &DftHashMap<LineNumber, DftHashSet<LineNumber>>,
+@@ -584,7 +584,7 @@ pub(crate) fn calculate_after_context(
+     }
+ }
+ 
+-pub(crate) fn add_context(
++pub fn add_context(
+     lines: &[(Option<LineNumber>, Option<LineNumber>)],
+     opposite_to_lhs: &DftHashMap<LineNumber, DftHashSet<LineNumber>>,
+     opposite_to_rhs: &DftHashMap<LineNumber, DftHashSet<LineNumber>>,
+diff --git a/src/display/hunks.rs b/src/display/hunks.rs
+index d8e315ff2..cda322215 100644
+--- a/src/display/hunks.rs
++++ b/src/display/hunks.rs
+@@ -16,18 +16,18 @@ use crate::parse::syntax::{zip_pad_shorter, MatchKind, MatchedPos};
+ /// A hunk represents a series of modified lines that are displayed
+ /// together.
+ #[derive(Debug, Clone)]
+-pub(crate) struct Hunk {
++pub struct Hunk {
+     /// The LHS line numbers that contain novel content.
+-    pub(crate) novel_lhs: DftHashSet<LineNumber>,
++    pub novel_lhs: DftHashSet<LineNumber>,
+     /// The RHS line numbers that contain novel content.
+-    pub(crate) novel_rhs: DftHashSet<LineNumber>,
++    pub novel_rhs: DftHashSet<LineNumber>,
+     /// Line pairs that contain modified lines. This does not include
+     /// padding, so at least one of the two lines has novel content.
+-    pub(crate) lines: Vec<(Option<LineNumber>, Option<LineNumber>)>,
++    pub lines: Vec<(Option<LineNumber>, Option<LineNumber>)>,
+ }
+ 
+ impl Hunk {
+-    pub(crate) fn merge(self, other: &Self) -> Self {
++    pub fn merge(self, other: &Self) -> Self {
+         let mut lines = self.lines;
+         lines.extend(other.lines.iter());
+ 
+@@ -95,7 +95,7 @@ fn fill_between(
+ 
+ /// Return `hunk.lines` with any unchanged lines that fall
+ /// between changed lines on the same side.
+-pub(crate) fn extract_lines(hunk: &Hunk) -> Vec<(Option<LineNumber>, Option<LineNumber>)> {
++pub fn extract_lines(hunk: &Hunk) -> Vec<(Option<LineNumber>, Option<LineNumber>)> {
+     let mut min_lhs = None;
+     let mut min_rhs = None;
+     let mut max_lhs = None;
+@@ -133,7 +133,7 @@ pub(crate) fn extract_lines(hunk: &Hunk) -> Vec<(Option<LineNumber>, Option<Line
+ ///
+ /// For example, given a hunk from lines 8-10 and a hunk from lines
+ /// 12-15 with 5 context lines, combine the two hunks.
+-pub(crate) fn merge_adjacent(
++pub fn merge_adjacent(
+     hunks: &[Hunk],
+     opposite_to_lhs: &DftHashMap<LineNumber, DftHashSet<LineNumber>>,
+     opposite_to_rhs: &DftHashMap<LineNumber, DftHashSet<LineNumber>>,
+@@ -602,7 +602,7 @@ fn matched_novel_lines(
+     lines
+ }
+ 
+-pub(crate) fn matched_pos_to_hunks(lhs_mps: &[MatchedPos], rhs_mps: &[MatchedPos]) -> Vec<Hunk> {
++pub fn matched_pos_to_hunks(lhs_mps: &[MatchedPos], rhs_mps: &[MatchedPos]) -> Vec<Hunk> {
+     lines_to_hunks(&matched_novel_lines(lhs_mps, rhs_mps), lhs_mps, rhs_mps)
+ }
+ 
+@@ -629,7 +629,7 @@ fn either_side_equal(
+ /// Given a set of matched lines between the LHS and RHS, return the
+ /// start and end indexes in `matched_lines` that should be displayed
+ /// for `hunk`.
+-pub(crate) fn matched_lines_indexes_for_hunk(
++pub fn matched_lines_indexes_for_hunk(
+     matched_lines: &[(Option<LineNumber>, Option<LineNumber>)],
+     hunk: &Hunk,
+     num_context_lines: usize,
+diff --git a/src/display/inline.rs b/src/display/inline.rs
+index 159ee12d6..c2a6bc8d6 100644
+--- a/src/display/inline.rs
++++ b/src/display/inline.rs
+@@ -11,7 +11,7 @@ use crate::options::DisplayOptions;
+ use crate::parse::syntax::MatchedPos;
+ use crate::summary::FileFormat;
+ 
+-pub(crate) fn print(
++pub fn print(
+     lhs_src: &str,
+     rhs_src: &str,
+     display_options: &DisplayOptions,
+diff --git a/src/display/json.rs b/src/display/json.rs
+index 76c20fcb2..18493e7cd 100644
+--- a/src/display/json.rs
++++ b/src/display/json.rs
+@@ -293,7 +293,7 @@ impl Highlight {
+     }
+ }
+ 
+-pub(crate) fn print_directory(diffs: Vec<DiffResult>, print_unchanged: bool) {
++pub fn print_directory(diffs: Vec<DiffResult>, print_unchanged: bool) {
+     let files = diffs
+         .iter()
+         .map(File::from)
+@@ -305,7 +305,7 @@ pub(crate) fn print_directory(diffs: Vec<DiffResult>, print_unchanged: bool) {
+     );
+ }
+ 
+-pub(crate) fn print(diff: &DiffResult) {
++pub fn print(diff: &DiffResult) {
+     let file = File::from(diff);
+     println!(
+         "{}",
+diff --git a/src/display/mod.rs b/src/display/mod.rs
+index 8604d52d9..928be3fe6 100644
+--- a/src/display/mod.rs
++++ b/src/display/mod.rs
+@@ -1,6 +1,6 @@
+-pub(crate) mod context;
+-pub(crate) mod hunks;
+-pub(crate) mod inline;
+-pub(crate) mod json;
+-pub(crate) mod side_by_side;
+-pub(crate) mod style;
++pub mod context;
++pub mod hunks;
++pub mod inline;
++pub mod json;
++pub mod side_by_side;
++pub mod style;
+diff --git a/src/display/side_by_side.rs b/src/display/side_by_side.rs
+index c5f03f21b..950b1f751 100644
+--- a/src/display/side_by_side.rs
++++ b/src/display/side_by_side.rs
+@@ -246,7 +246,7 @@ impl SourceDimensions {
+     }
+ }
+ 
+-pub(crate) fn lines_with_novel(
++pub fn lines_with_novel(
+     lhs_mps: &[MatchedPos],
+     rhs_mps: &[MatchedPos],
+ ) -> (DftHashSet<LineNumber>, DftHashSet<LineNumber>) {
+@@ -424,7 +424,7 @@ fn visible_content_max_display_width(
+     (lhs_content_max_width, rhs_content_max_width)
+ }
+ 
+-pub(crate) fn print(
++pub fn print(
+     hunks: &[Hunk],
+     display_options: &DisplayOptions,
+     display_path: &str,
+diff --git a/src/display/style.rs b/src/display/style.rs
+index 56576e810..8e9580a28 100644
+--- a/src/display/style.rs
++++ b/src/display/style.rs
+@@ -14,13 +14,13 @@ use crate::parse::syntax::{AtomKind, MatchKind, MatchedPos, StringKind, TokenKin
+ use crate::summary::FileFormat;
+ 
+ #[derive(Clone, Copy, Debug)]
+-pub(crate) enum BackgroundColor {
++pub enum BackgroundColor {
+     Dark,
+     Light,
+ }
+ 
+ impl BackgroundColor {
+-    pub(crate) fn is_dark(self) -> bool {
++    pub fn is_dark(self) -> bool {
+         matches!(self, Self::Dark)
+     }
+ }
+@@ -61,7 +61,7 @@ fn substring_by_byte_replace_tabs(s: &str, start: usize, end: usize, tab_width:
+     s.replace('\t', &" ".repeat(tab_width))
+ }
+ 
+-pub(crate) fn width_respecting_tabs(s: &str, tab_width: usize) -> usize {
++pub fn width_respecting_tabs(s: &str, tab_width: usize) -> usize {
+     let display_width = s.width();
+ 
+     let tab_count = s.matches('\t').count();
+@@ -123,7 +123,7 @@ fn split_string_by_width(s: &str, max_width: usize, tab_width: usize) -> Vec<(&s
+ 
+ /// Return a copy of `src` with all the tab characters replaced by
+ /// `tab_width` strings.
+-pub(crate) fn replace_tabs(src: &str, tab_width: usize) -> String {
++pub fn replace_tabs(src: &str, tab_width: usize) -> String {
+     let tab_as_spaces = " ".repeat(tab_width);
+     src.replace('\t', &tab_as_spaces)
+ }
+@@ -131,7 +131,7 @@ pub(crate) fn replace_tabs(src: &str, tab_width: usize) -> String {
+ /// Split `line` (from the source code) into multiple lines of
+ /// `max_len` (i.e. word wrapping), and apply `styles` to each part
+ /// according to its original position in `line`.
+-pub(crate) fn split_and_apply(
++pub fn split_and_apply(
+     line: &str,
+     max_len: usize,
+     tab_width: usize,
+@@ -305,7 +305,7 @@ fn style_lines(lines: &[&str], styles: &[(SingleLineSpan, Style)]) -> Vec<String
+     styled_lines
+ }
+ 
+-pub(crate) fn novel_style(style: Style, side: Side, background: BackgroundColor) -> Style {
++pub fn novel_style(style: Style, side: Side, background: BackgroundColor) -> Style {
+     if background.is_dark() {
+         match side {
+             Side::Left => style.bright_red(),
+@@ -361,7 +361,7 @@ fn merge_adjacent(items: &[(SingleLineSpan, Style)]) -> Vec<(SingleLineSpan, Sty
+     merged
+ }
+ 
+-pub(crate) fn color_positions(
++pub fn color_positions(
+     side: Side,
+     background: BackgroundColor,
+     syntax_highlight: bool,
+@@ -443,7 +443,7 @@ pub(crate) fn color_positions(
+     merge_adjacent(&styles)
+ }
+ 
+-pub(crate) fn apply_colors(
++pub fn apply_colors(
+     s: &str,
+     side: Side,
+     syntax_highlight: bool,
+@@ -478,7 +478,7 @@ fn apply_header_color(
+ }
+ 
+ /// Style `s` as a warning and write to stderr.
+-pub(crate) fn print_warning(s: &str, display_options: &DisplayOptions) {
++pub fn print_warning(s: &str, display_options: &DisplayOptions) {
+     let prefix = if display_options.use_color {
+         if display_options.background_color.is_dark() {
+             "warning: ".bright_yellow().to_string()
+@@ -496,7 +496,7 @@ pub(crate) fn print_warning(s: &str, display_options: &DisplayOptions) {
+ }
+ 
+ /// Style `s` as an error and write to stderr.
+-pub(crate) fn print_error(s: &str, use_color: bool) {
++pub fn print_error(s: &str, use_color: bool) {
+     // TODO: this is inconsistent with print_warning regarding
+     // arguments and trailing whitespace.
+     let prefix = if use_color {
+@@ -508,7 +508,7 @@ pub(crate) fn print_error(s: &str, use_color: bool) {
+     eprintln!("{}{}", prefix, s);
+ }
+ 
+-pub(crate) fn apply_line_number_color(
++pub fn apply_line_number_color(
+     s: &str,
+     is_novel: bool,
+     side: Side,
+@@ -536,7 +536,7 @@ pub(crate) fn apply_line_number_color(
+     }
+ }
+ 
+-pub(crate) fn header(
++pub fn header(
+     display_path: &str,
+     extra_info: Option<&String>,
+     hunk_num: usize,
+diff --git a/src/exit_codes.rs b/src/exit_codes.rs
+index d6d3ede23..d1e646904 100644
+--- a/src/exit_codes.rs
++++ b/src/exit_codes.rs
+@@ -1,12 +1,12 @@
+ /// Successfully ran a diff, found no syntactic changes in text files
+ /// or byte changes in binary files.
+-pub(crate) const EXIT_SUCCESS: i32 = 0;
++pub const EXIT_SUCCESS: i32 = 0;
+ 
+ /// Successfully ran a diff, found syntactic changes in text files or
+ /// byte changes in binary files.
+-pub(crate) const EXIT_FOUND_CHANGES: i32 = 1;
++pub const EXIT_FOUND_CHANGES: i32 = 1;
+ 
+ /// Invalid arguments given to difftastic. This could be usage errors
+ /// (e.g. invalid numbers of arguments) or invalid paths (e.g. files
+ /// we don't have permission to read).
+-pub(crate) const EXIT_BAD_ARGUMENTS: i32 = 2;
++pub const EXIT_BAD_ARGUMENTS: i32 = 2;
+diff --git a/src/files.rs b/src/files.rs
+index 1dddd065e..07e83db66 100644
+--- a/src/files.rs
++++ b/src/files.rs
+@@ -11,7 +11,7 @@ use crate::exit_codes::EXIT_BAD_ARGUMENTS;
+ use crate::hash::DftHashSet;
+ use crate::options::FileArgument;
+ 
+-pub(crate) fn read_file_or_die(path: &FileArgument) -> Vec<u8> {
++pub fn read_file_or_die(path: &FileArgument) -> Vec<u8> {
+     match read_file_arg(path) {
+         Ok(src) => src,
+         Err(e) => {
+@@ -21,7 +21,7 @@ pub(crate) fn read_file_or_die(path: &FileArgument) -> Vec<u8> {
+     }
+ }
+ 
+-pub(crate) fn read_files_or_die(
++pub fn read_files_or_die(
+     lhs_path: &FileArgument,
+     rhs_path: &FileArgument,
+     missing_as_empty: bool,
+@@ -93,7 +93,7 @@ fn eprint_read_error(file_arg: &FileArgument, e: &std::io::Error) {
+     };
+ }
+ 
+-pub(crate) fn read_or_die(path: &Path) -> Vec<u8> {
++pub fn read_or_die(path: &Path) -> Vec<u8> {
+     match fs::read(path) {
+         Ok(src) => src,
+         Err(e) => {
+@@ -130,7 +130,7 @@ fn u16_from_bytes(bytes: &[u8]) -> Vec<u16> {
+ }
+ 
+ #[derive(Debug, Eq, PartialEq)]
+-pub(crate) enum ProbableFileKind {
++pub enum ProbableFileKind {
+     Text(String),
+     Binary,
+ }
+@@ -147,7 +147,7 @@ pub(crate) enum ProbableFileKind {
+ /// .gitattributes.
+ ///
+ /// <https://git-scm.com/docs/gitattributes#_working_tree_encoding>
+-pub(crate) fn guess_content(
++pub fn guess_content(
+     bytes: &[u8],
+     path: &FileArgument,
+     binary_overrides: &[glob::Pattern],
+@@ -295,7 +295,7 @@ fn relative_file_paths_in_dir(dir: &Path) -> Vec<PathBuf> {
+ /// that occur in at least one directory.
+ ///
+ /// Attempts to preserve the ordering of files in both directories.
+-pub(crate) fn relative_paths_in_either(lhs_dir: &Path, rhs_dir: &Path) -> Vec<PathBuf> {
++pub fn relative_paths_in_either(lhs_dir: &Path, rhs_dir: &Path) -> Vec<PathBuf> {
+     let lhs_paths = relative_file_paths_in_dir(lhs_dir);
+     let rhs_paths = relative_file_paths_in_dir(rhs_dir);
+ 
+diff --git a/src/gitattributes.rs b/src/gitattributes.rs
+index f1d46931d..8bf915d0c 100644
+--- a/src/gitattributes.rs
++++ b/src/gitattributes.rs
+@@ -4,7 +4,7 @@ use std::process::Command;
+ /// The result of checking file's `diff` and `binary` attributes with `git check-attr`.
+ /// See man gitattributes, specifically **Generating diff text** section.
+ #[derive(Debug, PartialEq)]
+-pub(crate) enum DiffAttribute {
++pub enum DiffAttribute {
+     /// The file type (text vs binary) will be autodetected.
+     ///
+     /// This is the default setting, when `diff` attribute is not present.
+@@ -26,7 +26,7 @@ pub(crate) enum DiffAttribute {
+ /// Runs `git check-attr diff binary` to get the diff and binary attributes of the path. Returns
+ /// [`Option::None`] when either `git` is not available, file is not inside git directory, or
+ /// something else went wrong.
+-pub(crate) fn check_diff_attr(path: &Path) -> Option<DiffAttribute> {
++pub fn check_diff_attr(path: &Path) -> Option<DiffAttribute> {
+     let res = Command::new("git")
+         .args(["check-attr", "diff", "binary", "-z", "--"])
+         .arg(path)
+diff --git a/src/hash.rs b/src/hash.rs
+index f79ac6389..1b4ab69ce 100644
+--- a/src/hash.rs
++++ b/src/hash.rs
+@@ -9,8 +9,8 @@ use rustc_hash::{FxHashSet, FxHasher};
+ /// benchmarks) in a hashbrown::HashMap rather than std HashMap is a
+ /// little faster, and it also allows us to use the entry_ref API
+ /// which is unavailable in stable Rust.
+-pub(crate) type DftHashMap<K, V> = hashbrown::HashMap<K, V, BuildHasherDefault<FxHasher>>;
++pub type DftHashMap<K, V> = hashbrown::HashMap<K, V, BuildHasherDefault<FxHasher>>;
+ 
+ /// A fast hash set with no hash DoS protection. This is a simple
+ /// alias, but added for consistency with `DftHashMap`.
+-pub(crate) type DftHashSet<V> = FxHashSet<V>;
++pub type DftHashSet<V> = FxHashSet<V>;
+diff --git a/src/lib.rs b/src/lib.rs
+new file mode 100644
+index 000000000..2e82146fd
+--- /dev/null
++++ b/src/lib.rs
+@@ -0,0 +1,38 @@
++//! Difftastic core library - public API for difftastic functionality.
++//!
++//! This crate provides the core diff engine, parsing, and display
++//! functionality from difftastic, exposed as a library.
++
++#![allow(renamed_and_removed_lints)]
++#![allow(clippy::type_complexity)]
++#![allow(clippy::comparison_to_empty)]
++#![allow(clippy::too_many_arguments)]
++#![allow(clippy::if_same_then_else)]
++#![allow(clippy::mutable_key_type)]
++#![allow(unknown_lints)]
++#![allow(clippy::manual_unwrap_or_default)]
++#![allow(clippy::implicit_saturating_sub)]
++#![allow(clippy::needless_as_bytes)]
++#![warn(clippy::str_to_string)]
++#![warn(clippy::string_to_string)]
++#![warn(clippy::todo)]
++#![warn(clippy::dbg_macro)]
++
++#[macro_use]
++extern crate log;
++
++pub mod conflicts;
++pub mod constants;
++pub mod diff;
++pub mod display;
++pub mod exit_codes;
++pub mod files;
++pub mod gitattributes;
++pub mod hash;
++pub mod line_parser;
++pub mod lines;
++pub mod options;
++pub mod parse;
++pub mod summary;
++pub mod version;
++pub mod words;
+\ No newline at end of file
+diff --git a/src/line_parser.rs b/src/line_parser.rs
+index 3be3736f0..15590309f 100644
+--- a/src/line_parser.rs
++++ b/src/line_parser.rs
+@@ -108,7 +108,7 @@ fn line_len_in_bytes(line: &str) -> usize {
+ /// Build vecs of MatchedPos for both sides, performing a
+ /// line-oriented diff. Match up unchanged lines, and match up
+ /// unchanged words within novel lines.
+-pub(crate) fn change_positions(lhs_src: &str, rhs_src: &str) -> (Vec<MatchedPos>, Vec<MatchedPos>) {
++pub fn change_positions(lhs_src: &str, rhs_src: &str) -> (Vec<MatchedPos>, Vec<MatchedPos>) {
+     // TODO: If either side is "", don't split each line by words
+     // pointlessly. This is common for file additions/removals.
+     let lhs_lp = LinePositions::from(lhs_src);
+diff --git a/src/lines.rs b/src/lines.rs
+index 7bed537a3..a231d2e38 100644
+--- a/src/lines.rs
++++ b/src/lines.rs
+@@ -4,11 +4,11 @@ use std::ops::Sub;
+ 
+ use line_numbers::LineNumber;
+ 
+-pub(crate) fn format_line_num(line_num: LineNumber) -> String {
++pub fn format_line_num(line_num: LineNumber) -> String {
+     format!("{} ", line_num.display())
+ }
+ 
+-pub(crate) fn format_line_num_padded(line_num: LineNumber, column_width: usize) -> String {
++pub fn format_line_num_padded(line_num: LineNumber, column_width: usize) -> String {
+     format!(
+         "{:width$} ",
+         line_num.as_usize() + 1,
+@@ -20,11 +20,11 @@ pub(crate) fn format_line_num_padded(line_num: LineNumber, column_width: usize)
+ ///
+ /// This is a trivial wrapper to make it clear when we want bytes not
+ /// codepoints.
+-pub(crate) fn byte_len(s: &str) -> usize {
++pub fn byte_len(s: &str) -> usize {
+     s.len()
+ }
+ 
+-pub(crate) trait MaxLine {
++pub trait MaxLine {
+     fn max_line(&self) -> LineNumber;
+ }
+ 
+@@ -45,7 +45,7 @@ impl<S: AsRef<str>> MaxLine for S {
+ ///
+ /// This differs from `str::lines`, which considers `""` to be zero
+ /// lines and `"foo\n"` to be one line.
+-pub(crate) fn split_on_newlines(s: &str) -> impl Iterator<Item = &str> {
++pub fn split_on_newlines(s: &str) -> impl Iterator<Item = &str> {
+     s.split('\n').map(|l| {
+         if let Some(l) = l.strip_suffix('\r') {
+             l
+@@ -55,7 +55,7 @@ pub(crate) fn split_on_newlines(s: &str) -> impl Iterator<Item = &str> {
+     })
+ }
+ 
+-pub(crate) fn is_all_whitespace(s: &str) -> bool {
++pub fn is_all_whitespace(s: &str) -> bool {
+     s.chars().all(|c| c.is_whitespace())
+ }
+ 
+diff --git a/src/options.rs b/src/options.rs
+index 660769c2b..03fa8046e 100644
+--- a/src/options.rs
++++ b/src/options.rs
+@@ -14,38 +14,38 @@ use crate::exit_codes::EXIT_BAD_ARGUMENTS;
+ use crate::parse::guess_language::{language_override_from_name, LanguageOverride};
+ use crate::version::VERSION;
+ 
+-pub(crate) const DEFAULT_BYTE_LIMIT: usize = 1_000_000;
++pub const DEFAULT_BYTE_LIMIT: usize = 1_000_000;
+ // Chosen experimentally: this is sufficiently many for all the sample
+ // files (the highest is slow_1.rs/slow_2.rs at 1.3M nodes), but
+ // small enough to terminate in ~5 seconds like the test file in #306.
+-pub(crate) const DEFAULT_GRAPH_LIMIT: usize = 3_000_000;
+-pub(crate) const DEFAULT_PARSE_ERROR_LIMIT: usize = 0;
++pub const DEFAULT_GRAPH_LIMIT: usize = 3_000_000;
++pub const DEFAULT_PARSE_ERROR_LIMIT: usize = 0;
+ 
+-pub(crate) const DEFAULT_TAB_WIDTH: usize = 4;
++pub const DEFAULT_TAB_WIDTH: usize = 4;
+ 
+-pub(crate) const USAGE: &str = concat!(env!("CARGO_BIN_NAME"), " [OPTIONS] OLD-PATH NEW-PATH");
++pub const USAGE: &str = concat!("difft", " [OPTIONS] OLD-PATH NEW-PATH");
+ 
+ #[derive(Debug, Clone, Copy)]
+-pub(crate) enum ColorOutput {
++pub enum ColorOutput {
+     Always,
+     Auto,
+     Never,
+ }
+ 
+ #[derive(Debug, Clone)]
+-pub(crate) struct DisplayOptions {
+-    pub(crate) background_color: BackgroundColor,
+-    pub(crate) use_color: bool,
+-    pub(crate) display_mode: DisplayMode,
+-    pub(crate) print_unchanged: bool,
+-    pub(crate) tab_width: usize,
+-    pub(crate) terminal_width: usize,
+-    pub(crate) num_context_lines: u32,
+-    pub(crate) syntax_highlight: bool,
+-    pub(crate) sort_paths: bool,
++pub struct DisplayOptions {
++    pub background_color: BackgroundColor,
++    pub use_color: bool,
++    pub display_mode: DisplayMode,
++    pub print_unchanged: bool,
++    pub tab_width: usize,
++    pub terminal_width: usize,
++    pub num_context_lines: u32,
++    pub syntax_highlight: bool,
++    pub sort_paths: bool,
+ }
+ 
+-pub(crate) const DEFAULT_TERMINAL_WIDTH: usize = 80;
++pub const DEFAULT_TERMINAL_WIDTH: usize = 80;
+ 
+ impl Default for DisplayOptions {
+     fn default() -> Self {
+@@ -64,13 +64,13 @@ impl Default for DisplayOptions {
+ }
+ 
+ #[derive(Debug, Clone)]
+-pub(crate) struct DiffOptions {
+-    pub(crate) graph_limit: usize,
+-    pub(crate) byte_limit: usize,
+-    pub(crate) parse_error_limit: usize,
+-    pub(crate) check_only: bool,
+-    pub(crate) ignore_comments: bool,
+-    pub(crate) strip_cr: bool,
++pub struct DiffOptions {
++    pub graph_limit: usize,
++    pub byte_limit: usize,
++    pub parse_error_limit: usize,
++    pub check_only: bool,
++    pub ignore_comments: bool,
++    pub strip_cr: bool,
+ }
+ 
+ impl Default for DiffOptions {
+@@ -87,7 +87,7 @@ impl Default for DiffOptions {
+ }
+ 
+ fn app() -> clap::Command {
+-    let bin_name = env!("CARGO_BIN_NAME");
++    let bin_name = "difft";
+ 
+     let mut after_help = String::new();
+     after_help
+@@ -291,13 +291,13 @@ json: Output the results as a machine-readable JSON array with an element per fi
+                 .action(ArgAction::Append)
+                 .help(concat!("Associate this glob pattern with this language, overriding normal language detection. For example:
+ 
+-$ ", env!("CARGO_BIN_NAME"), " --override='*.c:C++' old.c new.c
++$ ", "difft", " --override='*.c:C++' old.c new.c
+ 
+ See --list-languages for the list of language names. Language names are matched case insensitively. Overrides may also specify the language \"text\" to treat a file as plain text.
+ 
+ This argument may be given more than once. For example:
+ 
+-$ ", env!("CARGO_BIN_NAME"), " --override='CustomFile:json' --override='*.c:text' old.c new.c
++$ ", "difft", " --override='CustomFile:json' --override='*.c:text' old.c new.c
+ 
+ To configure multiple overrides using environment variables, difftastic also accepts DFT_OVERRIDE_1 up to DFT_OVERRIDE_9.
+ 
+@@ -314,11 +314,11 @@ When multiple overrides are specified, the first matching override wins."))
+                 .action(ArgAction::Append)
+                 .help(concat!("Always treat file names matching this glob as binary files, ignoring the default heuristics for binary detection. For example:
+ 
+-$ ", env!("CARGO_BIN_NAME"), " --override-binary='*.gz' old.gz new.gz
++$ ", "difft", " --override-binary='*.gz' old.gz new.gz
+ 
+ This argument may be given more than once. For example:
+ 
+-$ ", env!("CARGO_BIN_NAME"), " --override-binary='*.gz' --override-binary='foo.pickle' old.gz new.gz
++$ ", "difft", " --override-binary='*.gz' --override-binary='foo.pickle' old.gz new.gz
+ 
+ To configure multiple overrides using environment variables, difftastic also accepts DFT_OVERRIDE_BINARY_1 up to DFT_OVERRIDE_BINARY_9.
+ 
+@@ -383,7 +383,7 @@ A value of 0 means that any parse error will make difftastic use a line-oriented
+ }
+ 
+ #[derive(Debug, Copy, Clone)]
+-pub(crate) enum DisplayMode {
++pub enum DisplayMode {
+     Inline,
+     SideBySide,
+     SideBySideShowBoth,
+@@ -391,14 +391,14 @@ pub(crate) enum DisplayMode {
+ }
+ 
+ #[derive(Eq, PartialEq, Debug)]
+-pub(crate) enum FileArgument {
++pub enum FileArgument {
+     NamedPath(std::path::PathBuf),
+     Stdin,
+     DevNull,
+ }
+ 
+ impl FileArgument {
+-    pub(crate) fn permissions(&self) -> Option<FilePermissions> {
++    pub fn permissions(&self) -> Option<FilePermissions> {
+         match self {
+             Self::NamedPath(path) => {
+                 // When used with `git difftool`, the first argument
+@@ -424,7 +424,7 @@ impl FileArgument {
+ /// how to display them, so internally this is just a human-friendly
+ /// string.
+ #[derive(Debug, Eq, PartialEq)]
+-pub(crate) struct FilePermissions(String);
++pub struct FilePermissions(String);
+ 
+ impl Display for FilePermissions {
+     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+@@ -484,7 +484,7 @@ fn relative_to_current(path: &Path) -> PathBuf {
+ impl FileArgument {
+     /// Return a `FileArgument` representing this command line
+     /// argument.
+-    pub(crate) fn from_cli_argument(arg: &OsStr) -> Self {
++    pub fn from_cli_argument(arg: &OsStr) -> Self {
+         if arg == "/dev/null" {
+             Self::DevNull
+         } else if arg == "-" {
+@@ -496,7 +496,7 @@ impl FileArgument {
+ 
+     /// Return a `FileArgument` that always represents a path that
+     /// exists, with the exception of `/dev/null`, which is turned into [FileArgument::DevNull].
+-    pub(crate) fn from_path_argument(arg: &OsStr) -> Self {
++    pub fn from_path_argument(arg: &OsStr) -> Self {
+         // For new and deleted files, Git passes `/dev/null` as the reference file.
+         if arg == "/dev/null" {
+             Self::DevNull
+@@ -518,7 +518,7 @@ impl Display for FileArgument {
+     }
+ }
+ 
+-pub(crate) enum Mode {
++pub enum Mode {
+     Diff {
+         diff_options: DiffOptions,
+         display_options: DisplayOptions,
+@@ -722,7 +722,7 @@ fn parse_binary_overrides_or_die(glob_strs: &[String]) -> Vec<glob::Pattern> {
+ }
+ 
+ /// Parse CLI arguments passed to the binary.
+-pub(crate) fn parse_args() -> Mode {
++pub fn parse_args() -> Mode {
+     let matches = app().get_matches();
+ 
+     let color_output = match matches
+@@ -991,7 +991,7 @@ pub(crate) fn parse_args() -> Mode {
+                 let bin_name = if let Some(first_arg) = std::env::args_os().next() {
+                     first_arg.to_string_lossy().to_string()
+                 } else {
+-                    env!("CARGO_BIN_NAME").to_owned()
++                    "difft".to_owned()
+                 };
+ 
+                 print_error(
+@@ -1062,7 +1062,7 @@ fn detect_terminal_width() -> usize {
+     DEFAULT_TERMINAL_WIDTH
+ }
+ 
+-pub(crate) fn should_use_color(color_output: ColorOutput) -> bool {
++pub fn should_use_color(color_output: ColorOutput) -> bool {
+     match color_output {
+         ColorOutput::Always => true,
+         ColorOutput::Auto => detect_color_support(),
+diff --git a/src/parse/guess_language.rs b/src/parse/guess_language.rs
+index 82cbb8b1e..76735e2c9 100644
+--- a/src/parse/guess_language.rs
++++ b/src/parse/guess_language.rs
+@@ -18,7 +18,7 @@ use strum::{EnumIter, IntoEnumIterator};
+ /// Languages supported by difftastic. Each language here has a
+ /// corresponding tree-sitter parser.
+ #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumIter)]
+-pub(crate) enum Language {
++pub enum Language {
+     Ada,
+     Apex,
+     Asm,
+@@ -90,7 +90,7 @@ pub(crate) enum Language {
+ /// as a specific languages, rather than using the normal language
+ /// detection logic.
+ #[derive(Debug, Clone, Copy, PartialEq)]
+-pub(crate) enum LanguageOverride {
++pub enum LanguageOverride {
+     /// Treat the file as this language regardless of what language
+     /// detection thinks.
+     Language(Language),
+@@ -100,7 +100,7 @@ pub(crate) enum LanguageOverride {
+ 
+ /// If there is a language called `name` (comparing case
+ /// insensitively), return it. Treat `"text"` as an additional option.
+-pub(crate) fn language_override_from_name(name: &str) -> Option<LanguageOverride> {
++pub fn language_override_from_name(name: &str) -> Option<LanguageOverride> {
+     let name = name.trim().to_lowercase();
+ 
+     if name == "text" {
+@@ -118,7 +118,7 @@ pub(crate) fn language_override_from_name(name: &str) -> Option<LanguageOverride
+ }
+ 
+ /// The language name shown to the user.
+-pub(crate) fn language_name(language: Language) -> &'static str {
++pub fn language_name(language: Language) -> &'static str {
+     match language {
+         Ada => "Ada",
+         Apex => "Apex",
+@@ -193,7 +193,7 @@ use Language::*;
+ use crate::lines::split_on_newlines;
+ 
+ /// File globs that identify languages based on the file path.
+-pub(crate) fn language_globs(language: Language) -> Vec<glob::Pattern> {
++pub fn language_globs(language: Language) -> Vec<glob::Pattern> {
+     let glob_strs: &'static [&'static str] = match language {
+         Ada => &["*.ada", "*.adb", "*.ads"],
+         Asm => &["*.asm", "*.s", "*.S"],
+@@ -466,7 +466,7 @@ fn looks_like_xml(src: &str) -> bool {
+     src.starts_with("<?xml")
+ }
+ 
+-pub(crate) fn guess(
++pub fn guess(
+     path: &Path,
+     src: &str,
+     overrides: &[(LanguageOverride, Vec<glob::Pattern>)],
+diff --git a/src/parse/mod.rs b/src/parse/mod.rs
+index 78fd86c62..b9d2435f3 100644
+--- a/src/parse/mod.rs
++++ b/src/parse/mod.rs
+@@ -1,3 +1,3 @@
+-pub(crate) mod guess_language;
+-pub(crate) mod syntax;
+-pub(crate) mod tree_sitter_parser;
++pub mod guess_language;
++pub mod syntax;
++pub mod tree_sitter_parser;
+diff --git a/src/parse/syntax.rs b/src/parse/syntax.rs
+index e5244c4d4..f3c860255 100644
+--- a/src/parse/syntax.rs
++++ b/src/parse/syntax.rs
+@@ -46,9 +46,9 @@ impl fmt::Debug for ChangeKind<'_> {
+     }
+ }
+ 
+-pub(crate) type SyntaxId = NonZeroU32;
++pub type SyntaxId = NonZeroU32;
+ 
+-pub(crate) type ContentId = u32;
++pub type ContentId = u32;
+ 
+ /// Fields that are common to both `Syntax::List` and `Syntax::Atom`.
+ ///
+@@ -65,7 +65,7 @@ pub(crate) type ContentId = u32;
+ ///
+ /// (This is deliberately exchanging correctness-by-construction for
+ /// performance.)
+-pub(crate) struct SyntaxInfo<'a> {
++pub struct SyntaxInfo<'a> {
+     /// The previous node with the same parent as this one.
+     previous_sibling: Cell<Option<&'a Syntax<'a>>>,
+     /// The next node with the same parent as this one.
+@@ -93,7 +93,7 @@ pub(crate) struct SyntaxInfo<'a> {
+ }
+ 
+ impl<'a> SyntaxInfo<'a> {
+-    pub(crate) fn new() -> Self {
++    pub fn new() -> Self {
+         Self {
+             previous_sibling: Cell::new(None),
+             next_sibling: Cell::new(None),
+@@ -113,7 +113,7 @@ impl Default for SyntaxInfo<'_> {
+     }
+ }
+ 
+-pub(crate) enum Syntax<'a> {
++pub enum Syntax<'a> {
+     List {
+         info: SyntaxInfo<'a>,
+         /// The position of the opening token, such as a `(` or `[`.
+@@ -215,7 +215,7 @@ impl<'a> fmt::Debug for Syntax<'a> {
+ }
+ 
+ impl<'a> Syntax<'a> {
+-    pub(crate) fn new_list(
++    pub fn new_list(
+         arena: &'a Arena<Self>,
+         open_content: &str,
+         open_position: Vec<SingleLineSpan>,
+@@ -268,7 +268,7 @@ impl<'a> Syntax<'a> {
+         })
+     }
+ 
+-    pub(crate) fn new_atom(
++    pub fn new_atom(
+         arena: &'a Arena<Self>,
+         mut position: Vec<SingleLineSpan>,
+         mut content: String,
+@@ -297,17 +297,17 @@ impl<'a> Syntax<'a> {
+         })
+     }
+ 
+-    pub(crate) fn info(&self) -> &SyntaxInfo<'a> {
++    pub fn info(&self) -> &SyntaxInfo<'a> {
+         match self {
+             List { info, .. } | Atom { info, .. } => info,
+         }
+     }
+ 
+-    pub(crate) fn parent(&self) -> Option<&'a Self> {
++    pub fn parent(&self) -> Option<&'a Self> {
+         self.info().parent.get()
+     }
+ 
+-    pub(crate) fn next_sibling(&self) -> Option<&'a Self> {
++    pub fn next_sibling(&self) -> Option<&'a Self> {
+         self.info().next_sibling.get()
+     }
+ 
+@@ -316,26 +316,26 @@ impl<'a> Syntax<'a> {
+     ///
+     /// This is a global uniqueness property, so LHS nodes and RHS
+     /// nodes will always have different values.
+-    pub(crate) fn id(&self) -> SyntaxId {
++    pub fn id(&self) -> SyntaxId {
+         self.info().unique_id.get()
+     }
+ 
+     /// A content ID of this syntax node. Two nodes have the same
+     /// content ID if they have the same content, regardless of
+     /// position.
+-    pub(crate) fn content_id(&self) -> ContentId {
++    pub fn content_id(&self) -> ContentId {
+         self.info().content_id.get()
+     }
+ 
+-    pub(crate) fn content_is_unique(&self) -> bool {
++    pub fn content_is_unique(&self) -> bool {
+         self.info().content_is_unique_to_side.get()
+     }
+ 
+-    pub(crate) fn num_ancestors(&self) -> u32 {
++    pub fn num_ancestors(&self) -> u32 {
+         self.info().num_ancestors.get()
+     }
+ 
+-    pub(crate) fn dbg_content(&self) -> String {
++    pub fn dbg_content(&self) -> String {
+         match self {
+             List {
+                 open_content,
+@@ -363,7 +363,7 @@ impl<'a> Syntax<'a> {
+     }
+ }
+ 
+-pub(crate) fn comment_positions<'a>(nodes: &[&'a Syntax<'a>]) -> Vec<SingleLineSpan> {
++pub fn comment_positions<'a>(nodes: &[&'a Syntax<'a>]) -> Vec<SingleLineSpan> {
+     fn walk_comment_positions(node: &Syntax<'_>, positions: &mut Vec<SingleLineSpan>) {
+         match node {
+             List { children, .. } => {
+@@ -388,13 +388,13 @@ pub(crate) fn comment_positions<'a>(nodes: &[&'a Syntax<'a>]) -> Vec<SingleLineS
+ }
+ 
+ /// Initialise all the fields in `SyntaxInfo`.
+-pub(crate) fn init_all_info<'a>(lhs_roots: &[&'a Syntax<'a>], rhs_roots: &[&'a Syntax<'a>]) {
++pub fn init_all_info<'a>(lhs_roots: &[&'a Syntax<'a>], rhs_roots: &[&'a Syntax<'a>]) {
+     init_info(lhs_roots, rhs_roots);
+     init_next_prev(lhs_roots);
+     init_next_prev(rhs_roots);
+ }
+ 
+-pub(crate) fn print_as_dot<'a>(roots: &[&'a Syntax<'a>]) {
++pub fn print_as_dot<'a>(roots: &[&'a Syntax<'a>]) {
+     println!("digraph {{");
+     print_as_dot_(roots);
+     println!("}}");
+@@ -501,7 +501,7 @@ fn set_content_id(nodes: &[&Syntax], existing: &mut DftHashMap<ContentKey, u32>)
+     }
+ }
+ 
+-pub(crate) fn init_next_prev<'a>(roots: &[&'a Syntax<'a>]) {
++pub fn init_next_prev<'a>(roots: &[&'a Syntax<'a>]) {
+     set_prev_sibling(roots);
+     set_next_sibling(roots);
+     set_prev(roots, None);
+@@ -625,7 +625,7 @@ impl<'a> Eq for Syntax<'a> {}
+ /// Different types of strings. We want to diff these the same way,
+ /// but highlight them differently.
+ #[derive(PartialEq, Eq, Debug, Clone, Copy, Hash)]
+-pub(crate) enum StringKind {
++pub enum StringKind {
+     /// A string literal, such as `"foo"`.
+     StringLiteral,
+     /// Plain text, such as the content of `<p>foo</p>`.
+@@ -633,7 +633,7 @@ pub(crate) enum StringKind {
+ }
+ 
+ #[derive(PartialEq, Eq, Debug, Clone, Copy, Hash)]
+-pub(crate) enum AtomKind {
++pub enum AtomKind {
+     /// The kind of this atom when we don't know anything else about
+     /// it. This is typically a variable, e.g. `foo`, or a literal
+     /// `123`. Note that string literals have a separate kind.
+@@ -665,14 +665,14 @@ pub(crate) enum AtomKind {
+ 
+ /// Unlike atoms, tokens can be delimiters like `{`.
+ #[derive(PartialEq, Eq, Debug, Clone, Copy)]
+-pub(crate) enum TokenKind {
++pub enum TokenKind {
+     Delimiter,
+     Atom(AtomKind),
+ }
+ 
+ /// A matched token (an atom, a delimiter, or a comment word).
+ #[derive(PartialEq, Eq, Debug, Clone)]
+-pub(crate) enum MatchKind {
++pub enum MatchKind {
+     UnchangedToken {
+         highlight: TokenKind,
+         self_pos: Vec<SingleLineSpan>,
+@@ -714,7 +714,7 @@ pub(crate) enum MatchKind {
+ }
+ 
+ impl MatchKind {
+-    pub(crate) fn is_novel(&self) -> bool {
++    pub fn is_novel(&self) -> bool {
+         matches!(
+             self,
+             Self::Novel { .. } | Self::NovelWord { .. } | Self::UnchangedPartOfNovelItem { .. }
+@@ -723,9 +723,9 @@ impl MatchKind {
+ }
+ 
+ #[derive(Debug, Clone, PartialEq, Eq)]
+-pub(crate) struct MatchedPos {
+-    pub(crate) kind: MatchKind,
+-    pub(crate) pos: SingleLineSpan,
++pub struct MatchedPos {
++    pub kind: MatchKind,
++    pub pos: SingleLineSpan,
+ }
+ 
+ /// Given the text `content` from a comment or string, split it into
+@@ -971,7 +971,7 @@ impl MatchedPos {
+ }
+ 
+ /// Walk `nodes` and return a vec of all the changed positions.
+-pub(crate) fn change_positions<'a>(
++pub fn change_positions<'a>(
+     nodes: &[&'a Syntax<'a>],
+     change_map: &ChangeMap<'a>,
+ ) -> Vec<MatchedPos> {
+@@ -1060,7 +1060,7 @@ fn change_positions_<'a>(
+     }
+ }
+ 
+-pub(crate) fn zip_pad_shorter<Tx: Clone, Ty: Clone>(
++pub fn zip_pad_shorter<Tx: Clone, Ty: Clone>(
+     lhs: &[Tx],
+     rhs: &[Ty],
+ ) -> Vec<(Option<Tx>, Option<Ty>)> {
+@@ -1080,7 +1080,7 @@ pub(crate) fn zip_pad_shorter<Tx: Clone, Ty: Clone>(
+ 
+ /// Zip `lhs` with `rhs`, but repeat the last item from the shorter
+ /// slice.
+-pub(crate) fn zip_repeat_shorter<Tx: Clone, Ty: Clone>(lhs: &[Tx], rhs: &[Ty]) -> Vec<(Tx, Ty)> {
++pub fn zip_repeat_shorter<Tx: Clone, Ty: Clone>(lhs: &[Tx], rhs: &[Ty]) -> Vec<(Tx, Ty)> {
+     let lhs_last: Tx = match lhs.last() {
+         Some(last) => last.clone(),
+         None => return vec![],
+diff --git a/src/parse/tree_sitter_parser.rs b/src/parse/tree_sitter_parser.rs
+index 3fb334cdf..2afa82744 100644
+--- a/src/parse/tree_sitter_parser.rs
++++ b/src/parse/tree_sitter_parser.rs
+@@ -20,7 +20,7 @@ use crate::parse::syntax::{AtomKind, Syntax};
+ /// nodes, and what languages we should parse them as.
+ ///
+ /// Note that we don't support sub-languages more than one layer deep.
+-pub(crate) struct TreeSitterSubLanguage {
++pub struct TreeSitterSubLanguage {
+     /// How to identify a node. The query must contain exactly one
+     /// capture group (the name is arbitrary).
+     query: ts::Query,
+@@ -30,9 +30,9 @@ pub(crate) struct TreeSitterSubLanguage {
+ }
+ 
+ /// Configuration for a tree-sitter parser.
+-pub(crate) struct TreeSitterConfig {
++pub struct TreeSitterConfig {
+     /// The tree-sitter language parser.
+-    pub(crate) language: ts::Language,
++    pub language: ts::Language,
+ 
+     /// Force these tree-sitter nodes to be difftastic atoms and
+     /// ignore their children.
+@@ -102,7 +102,7 @@ const OCAML_ATOM_NODES: [&str; 6] = [
+     "attribute_id",
+ ];
+ 
+-pub(crate) fn from_language(language: guess::Language) -> &'static TreeSitterConfig {
++pub fn from_language(language: guess::Language) -> &'static TreeSitterConfig {
+     // Constructing a tree sitter query is relatively expensive: it
+     // can take tens of milliseconds.
+     //
+@@ -1293,7 +1293,7 @@ fn build_config(language: guess::Language) -> TreeSitterConfig {
+ }
+ 
+ /// Parse `src` with tree-sitter.
+-pub(crate) fn to_tree(src: &str, config: &TreeSitterConfig) -> tree_sitter::Tree {
++pub fn to_tree(src: &str, config: &TreeSitterConfig) -> tree_sitter::Tree {
+     let mut parser = ts::Parser::new();
+     parser
+         .set_language(&config.language)
+@@ -1303,9 +1303,9 @@ pub(crate) fn to_tree(src: &str, config: &TreeSitterConfig) -> tree_sitter::Tree
+ }
+ 
+ #[derive(Debug)]
+-pub(crate) struct ExceededByteLimit(pub(crate) usize);
++pub struct ExceededByteLimit(pub usize);
+ 
+-pub(crate) fn to_tree_with_limit(
++pub fn to_tree_with_limit(
+     diff_options: &DiffOptions,
+     config: &TreeSitterConfig,
+     lhs_src: &str,
+@@ -1322,7 +1322,7 @@ pub(crate) fn to_tree_with_limit(
+ /// Find any nodes that can be parsed as other languages (e.g. JavaScript embedded in HTML),
+ /// and return a map of their node IDs mapped to parsed trees. Every time we see such a node,
+ /// we will ignore it and recurse into the root node of the given tree instead.
+-pub(crate) fn parse_subtrees(
++pub fn parse_subtrees(
+     src: &str,
+     config: &TreeSitterConfig,
+     tree: &tree_sitter::Tree,
+@@ -1460,7 +1460,7 @@ fn tree_highlights(
+     }
+ }
+ 
+-pub(crate) fn print_tree(src: &str, tree: &tree_sitter::Tree) {
++pub fn print_tree(src: &str, tree: &tree_sitter::Tree) {
+     let mut cursor = tree.walk();
+     print_cursor(src, &mut cursor, 0);
+ }
+@@ -1494,7 +1494,7 @@ fn print_cursor(src: &str, cursor: &mut ts::TreeCursor, depth: usize) {
+     }
+ }
+ 
+-pub(crate) fn comment_positions(
++pub fn comment_positions(
+     tree: &tree_sitter::Tree,
+     src: &str,
+     config: &TreeSitterConfig,
+@@ -1517,18 +1517,18 @@ pub(crate) fn comment_positions(
+ }
+ 
+ #[derive(Debug)]
+-pub(crate) struct ExceededParseErrorLimit {
++pub struct ExceededParseErrorLimit {
+     /// The total number of parse errors found across both inputs.
+-    pub(crate) error_count: usize,
++    pub error_count: usize,
+     /// The line, zero-indexed column, and side of the first parse
+     /// error, if any. The right-hand side is preferred when both sides
+     /// have errors.
+-    pub(crate) first_error_pos: Option<(LineNumber, usize, Side)>,
++    pub first_error_pos: Option<(LineNumber, usize, Side)>,
+ }
+ 
+ /// Parse error information accumulated while walking a tree-sitter AST.
+ #[derive(Debug, Default, Clone, Copy)]
+-pub(crate) struct ParseErrors {
++pub struct ParseErrors {
+     /// The number of error nodes seen.
+     count: usize,
+     /// The line and zero-indexed column of the first error node seen,
+@@ -1547,7 +1547,7 @@ impl ParseErrors {
+     }
+ }
+ 
+-pub(crate) fn to_syntax_with_limit<'a>(
++pub fn to_syntax_with_limit<'a>(
+     lhs_src: &str,
+     rhs_src: &str,
+     lhs_tree: &tree_sitter::Tree,
+@@ -1591,7 +1591,7 @@ pub(crate) fn to_syntax_with_limit<'a>(
+     Ok((lhs_nodes, rhs_nodes))
+ }
+ 
+-pub(crate) fn to_syntax<'a>(
++pub fn to_syntax<'a>(
+     tree: &tree_sitter::Tree,
+     src: &str,
+     arena: &'a Arena<Syntax<'a>>,
+@@ -1639,7 +1639,7 @@ pub(crate) fn to_syntax<'a>(
+ }
+ 
+ /// Parse `src` with tree-sitter and convert to difftastic Syntax.
+-pub(crate) fn parse<'a>(
++pub fn parse<'a>(
+     arena: &'a Arena<Syntax<'a>>,
+     src: &str,
+     config: &TreeSitterConfig,
+@@ -1699,7 +1699,7 @@ fn find_delim_positions(
+ }
+ 
+ #[derive(Debug)]
+-pub(crate) struct HighlightedNodeIds {
++pub struct HighlightedNodeIds {
+     keyword_ids: DftHashSet<usize>,
+     comment_ids: DftHashSet<usize>,
+     string_ids: DftHashSet<usize>,
+diff --git a/src/summary.rs b/src/summary.rs
+index d4712a6d1..65318794e 100644
+--- a/src/summary.rs
++++ b/src/summary.rs
+@@ -7,13 +7,13 @@ use crate::parse::guess_language::{self, language_name};
+ use crate::parse::syntax::MatchedPos;
+ 
+ #[derive(Debug, PartialEq, Eq)]
+-pub(crate) enum FileContent {
++pub enum FileContent {
+     Text(String),
+     Binary,
+ }
+ 
+ #[derive(Debug, Clone)]
+-pub(crate) enum FileFormat {
++pub enum FileFormat {
+     SupportedLanguage(guess_language::Language),
+     PlainText,
+     TextFallback { reason: String },
+@@ -32,28 +32,28 @@ impl Display for FileFormat {
+ }
+ 
+ #[derive(Debug)]
+-pub(crate) struct DiffResult {
+-    pub(crate) display_path: String,
++pub struct DiffResult {
++    pub display_path: String,
+     /// Additional information to display about this file, such as
+     /// "Renamed from x.js to y.js".
+-    pub(crate) extra_info: Option<String>,
++    pub extra_info: Option<String>,
+ 
+-    pub(crate) file_format: FileFormat,
+-    pub(crate) lhs_src: FileContent,
+-    pub(crate) rhs_src: FileContent,
+-    pub(crate) hunks: Vec<Hunk>,
++    pub file_format: FileFormat,
++    pub lhs_src: FileContent,
++    pub rhs_src: FileContent,
++    pub hunks: Vec<Hunk>,
+ 
+-    pub(crate) lhs_positions: Vec<MatchedPos>,
+-    pub(crate) rhs_positions: Vec<MatchedPos>,
++    pub lhs_positions: Vec<MatchedPos>,
++    pub rhs_positions: Vec<MatchedPos>,
+ 
+     /// If the two files do not have exactly the same bytes, the
+     /// number of bytes in each file.
+-    pub(crate) has_byte_changes: Option<(usize, usize)>,
+-    pub(crate) has_syntactic_changes: bool,
++    pub has_byte_changes: Option<(usize, usize)>,
++    pub has_syntactic_changes: bool,
+ }
+ 
+ impl DiffResult {
+-    pub(crate) fn has_reportable_change(&self) -> bool {
++    pub fn has_reportable_change(&self) -> bool {
+         if matches!(self.lhs_src, FileContent::Binary)
+             || matches!(self.rhs_src, FileContent::Binary)
+         {
+diff --git a/src/version.rs b/src/version.rs
+index 63a61c2fa..0efcd8a15 100644
+--- a/src/version.rs
++++ b/src/version.rs
+@@ -2,15 +2,15 @@ use std::fmt;
+ 
+ use lazy_static::lazy_static;
+ 
+-pub(crate) struct CommitInfo {
+-    pub(crate) short_commit_hash: &'static str,
+-    pub(crate) commit_date: &'static str,
++pub struct CommitInfo {
++    pub short_commit_hash: &'static str,
++    pub commit_date: &'static str,
+ }
+ 
+-pub(crate) struct VersionInfo {
+-    pub(crate) version: &'static str,
+-    pub(crate) commit_info: Option<CommitInfo>,
+-    pub(crate) rustc_version: Option<&'static str>,
++pub struct VersionInfo {
++    pub version: &'static str,
++    pub commit_info: Option<CommitInfo>,
++    pub rustc_version: Option<&'static str>,
+ }
+ 
+ impl fmt::Display for VersionInfo {
+@@ -53,10 +53,10 @@ impl fmt::Display for VersionInfo {
+ }
+ 
+ lazy_static! {
+-    pub(crate) static ref VERSION: String = version().to_string();
++    pub static ref VERSION: String = version().to_string();
+ }
+ 
+-pub(crate) const fn version() -> VersionInfo {
++pub const fn version() -> VersionInfo {
+     let version = env!("CARGO_PKG_VERSION");
+     let commit_info = match (
+         option_env!("DFT_COMMIT_SHORT_HASH"),
+diff --git a/src/words.rs b/src/words.rs
+index 1f04ba656..330db83d1 100644
+--- a/src/words.rs
++++ b/src/words.rs
+@@ -6,7 +6,7 @@
+ /// See also `split_words_and_numbers`. Both these functions are hot,
+ /// so they are separate implementations rather than passing a bool to
+ /// customise number handling.
+-pub(crate) fn split_words_up_to(s: &str, limit: usize) -> Option<Vec<&str>> {
++pub fn split_words_up_to(s: &str, limit: usize) -> Option<Vec<&str>> {
+     let mut words = vec![];
+     let mut word_start: Option<usize> = None;
+     for (idx, c) in s.char_indices() {
+@@ -49,7 +49,7 @@ pub(crate) fn split_words_up_to(s: &str, limit: usize) -> Option<Vec<&str>> {
+ /// non-word characters.
+ ///
+ /// "foo..bar23" -> vec!["foo", ".", ".", "bar", "23"]
+-pub(crate) fn split_words_and_numbers(s: &str) -> Vec<&str> {
++pub fn split_words_and_numbers(s: &str) -> Vec<&str> {
+     let mut words = vec![];
+     let mut word_start: Option<(usize, char)> = None;
+     for (idx, c) in s.char_indices() {
+-- 
+2.55.0
+
